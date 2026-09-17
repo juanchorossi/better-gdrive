@@ -1,0 +1,78 @@
+name: BetterGDrive
+options:
+  bundleIdPrefix: com.juanrossi
+  deploymentTarget:
+    macOS: "14.0"
+  xcodeVersion: "16.0"
+  defaultConfig: Debug
+
+settings:
+  base:
+    SWIFT_VERSION: "5.9"
+    MACOSX_DEPLOYMENT_TARGET: "14.0"
+    DEVELOPMENT_TEAM: 834JA84DX2
+    CODE_SIGN_STYLE: Automatic
+
+targets:
+  BetterGDrive:
+    type: application
+    platform: macOS
+    sources:
+      - path: BetterGDrive/App
+      - path: BetterGDrive/Core
+      - path: BetterGDrive/Views
+      - path: BetterGDrive/Resources
+    resources:
+      - path: BetterGDrive/Resources
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: com.juanrossi.bettergdrive
+        PRODUCT_NAME: "Better GDrive"
+        MARKETING_VERSION: "1.0.0"
+        CURRENT_PROJECT_VERSION: "1"
+        INFOPLIST_FILE: BetterGDrive/App/Info.plist
+        CODE_SIGN_ENTITLEMENTS: BetterGDrive/App/BetterGDrive.entitlements
+        ENABLE_HARDENED_RUNTIME: YES
+        ASSETCATALOG_COMPILER_APPICON_NAME: AppIcon
+        ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME: AccentColor
+        LD_RUNPATH_SEARCH_PATHS: "$(inherited) @executable_path/../Frameworks"
+      configs:
+        Debug:
+          CODE_SIGN_IDENTITY: "Apple Development"
+          DEBUG_INFORMATION_FORMAT: dwarf
+          SWIFT_OPTIMIZATION_LEVEL: "-Onone"
+          ENABLE_TESTABILITY: YES
+        Release:
+          CODE_SIGN_IDENTITY: "Developer ID Application"
+          DEBUG_INFORMATION_FORMAT: dwarf-with-dsym
+          SWIFT_OPTIMIZATION_LEVEL: "-O"
+          ENABLE_TESTABILITY: NO
+
+  BetterGDriveTests:
+    type: bundle.unit-test
+    platform: macOS
+    sources:
+      - path: BetterGDriveTests
+    settings:
+      base:
+        BUNDLE_LOADER: "$(TEST_HOST)"
+        TEST_HOST: "$(BUILT_PRODUCTS_DIR)/Better GDrive.app/Contents/MacOS/Better GDrive"
+        PRODUCT_BUNDLE_IDENTIFIER: com.juanrossi.bettergdrive.tests
+        GENERATE_INFOPLIST_FILE: YES
+    dependencies:
+      - target: BetterGDrive
+
+schemes:
+  BetterGDrive:
+    build:
+      targets:
+        BetterGDrive: all
+        BetterGDriveTests: testing
+    run:
+      config: Debug
+    test:
+      config: Debug
+      targets:
+        - BetterGDriveTests
+    archive:
+      config: Release

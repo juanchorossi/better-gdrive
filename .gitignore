@@ -1,0 +1,33 @@
+# Xcode
+*.xcuserstate
+*.xcuserdatad/
+xcuserdata/
+DerivedData/
+*.moved-aside
+*.hmap
+*.ipa
+*.dSYM.zip
+*.dSYM
+
+# Build
+build/
+*.o
+*.d
+
+# Swift Package Manager
+.build/
+.swiftpm/
+
+# CocoaPods
+Pods/
+
+# macOS
+.DS_Store
+.AppleDouble
+.LSOverride
+
+# Bundled rclone binary (too large for git — download separately, see README)
+BetterGDrive/Resources/rclone
+
+# Private Claude instructions (not relevant for contributors)
+CLAUDE.md

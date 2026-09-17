@@ -1,0 +1,506 @@
+// !$*UTF8*$!
+{
+	archiveVersion = 1;
+	classes = {
+	};
+	objectVersion = 77;
+	objects = {
+
+/* Begin PBXBuildFile section */
+		0ABEFFD3C165D3C9F4B8CE6B /* ModelsTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = AD9B5083F04764E802A0FA6B /* ModelsTests.swift */; };
+		161CF6CAA8196C694CDD8AD4 /* MenuBarView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5155B5FED9908F056B68A68A /* MenuBarView.swift */; };
+		271C075951CDBCA1D0634873 /* LocalFileWatcher.swift in Sources */ = {isa = PBXBuildFile; fileRef = A717629964ECE32E129DAF42 /* LocalFileWatcher.swift */; };
+		36D688BC30C85E09F7F9DC71 /* RcloneRC.swift in Sources */ = {isa = PBXBuildFile; fileRef = EFE84D260D105896A9D883AC /* RcloneRC.swift */; };
+		5B7E47581B9AC318ED86EF02 /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = D8104F749F81934B27B3426F /* Assets.xcassets */; };
+		606F1B2E544472F431D32576 /* StatusStoreTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 972D22ECDB0427DD42A83A82 /* StatusStoreTests.swift */; };
+		65F2C62858118691A408CA73 /* BetterGDriveApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2C3B0830FDECA4C2E750118E /* BetterGDriveApp.swift */; };
+		74D6E3EBC49440355D6DD843 /* KeychainStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = F6FD82430D8E1E23DE01BB31 /* KeychainStore.swift */; };
+		84C54ED7EE331AFA8821CC04 /* OnboardingView.swift in Sources */ = {isa = PBXBuildFile; fileRef = C1088CFB156101789AC2B68D /* OnboardingView.swift */; };
+		86A6CF58721A6334E04E5861 /* L.swift in Sources */ = {isa = PBXBuildFile; fileRef = 51B7C97A01EF29A692582831 /* L.swift */; };
+		8B2137163474F88DCDD20A32 /* ConfigStoreTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8D8B3E880DA31C8F15EF933D /* ConfigStoreTests.swift */; };
+		A9228EDFC95FE7D6BC2B7C67 /* Models.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7425894A7A9769EFCDE23162 /* Models.swift */; };
+		B49ACDC016BE2ADC279238F5 /* ConfigStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = D3AA1B7AA93880FC024CDC0F /* ConfigStore.swift */; };
+		BC17E486ECECCF23348963A0 /* DetailView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 30DC55FCACF65E2433641B33 /* DetailView.swift */; };
+		C5C5FFFFED5FD59A17A743E0 /* StatusStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4E88A700D56228C2C81F415E /* StatusStore.swift */; };
+		FE1B0FE1AF34803A85DAE07D /* MainWindowView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 646FFEECE02608E85FAC693C /* MainWindowView.swift */; };
+/* End PBXBuildFile section */
+
+/* Begin PBXContainerItemProxy section */
+		B905322573FEF3621636B16E /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 56A169A4FDB47C3FC83FA42D /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = CC4F66F6B7A0E9780971D508;
+			remoteInfo = BetterGDrive;
+		};
+/* End PBXContainerItemProxy section */
+
+/* Begin PBXFileReference section */
+		00A26B0DAABA4A09B20FD86D /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist; path = Info.plist; sourceTree = "<group>"; };
+		2C3B0830FDECA4C2E750118E /* BetterGDriveApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BetterGDriveApp.swift; sourceTree = "<group>"; };
+		30DC55FCACF65E2433641B33 /* DetailView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DetailView.swift; sourceTree = "<group>"; };
+		4E88A700D56228C2C81F415E /* StatusStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = StatusStore.swift; sourceTree = "<group>"; };
+		5155B5FED9908F056B68A68A /* MenuBarView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MenuBarView.swift; sourceTree = "<group>"; };
+		51B7C97A01EF29A692582831 /* L.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = L.swift; sourceTree = "<group>"; };
+		536CC665C20BB7F9B25A7E97 /* rclone */ = {isa = PBXFileReference; path = rclone; sourceTree = "<group>"; };
+		646FFEECE02608E85FAC693C /* MainWindowView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MainWindowView.swift; sourceTree = "<group>"; };
+		7425894A7A9769EFCDE23162 /* Models.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Models.swift; sourceTree = "<group>"; };
+		8D8B3E880DA31C8F15EF933D /* ConfigStoreTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ConfigStoreTests.swift; sourceTree = "<group>"; };
+		972D22ECDB0427DD42A83A82 /* StatusStoreTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = StatusStoreTests.swift; sourceTree = "<group>"; };
+		A717629964ECE32E129DAF42 /* LocalFileWatcher.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LocalFileWatcher.swift; sourceTree = "<group>"; };
+		AD9B5083F04764E802A0FA6B /* ModelsTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ModelsTests.swift; sourceTree = "<group>"; };
+		C1088CFB156101789AC2B68D /* OnboardingView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OnboardingView.swift; sourceTree = "<group>"; };
+		D3AA1B7AA93880FC024CDC0F /* ConfigStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ConfigStore.swift; sourceTree = "<group>"; };
+		D8104F749F81934B27B3426F /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
+		E3EC49430B6D98CFFA330676 /* BetterGDrive.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = BetterGDrive.entitlements; sourceTree = "<group>"; };
+		ED09C3657118586D2ADBEA09 /* BetterGDrive.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = BetterGDrive.app; sourceTree = BUILT_PRODUCTS_DIR; };
+		EFE84D260D105896A9D883AC /* RcloneRC.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RcloneRC.swift; sourceTree = "<group>"; };
+		F6FD82430D8E1E23DE01BB31 /* KeychainStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = KeychainStore.swift; sourceTree = "<group>"; };
+		FCD744C91DFB04DCC16D094D /* BetterGDriveTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = BetterGDriveTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
+/* End PBXFileReference section */
+
+/* Begin PBXGroup section */
+		3A03E9CCB7C60CD6779F90A2 /* App */ = {
+			isa = PBXGroup;
+			children = (
+				E3EC49430B6D98CFFA330676 /* BetterGDrive.entitlements */,
+				2C3B0830FDECA4C2E750118E /* BetterGDriveApp.swift */,
+				00A26B0DAABA4A09B20FD86D /* Info.plist */,
+			);
+			name = App;
+			path = BetterGDrive/App;
+			sourceTree = "<group>";
+		};
+		53CFC6232D1EFD87BAE2AF3D /* Resources */ = {
+			isa = PBXGroup;
+			children = (
+				D8104F749F81934B27B3426F /* Assets.xcassets */,
+				536CC665C20BB7F9B25A7E97 /* rclone */,
+			);
+			name = Resources;
+			path = BetterGDrive/Resources;
+			sourceTree = "<group>";
+		};
+		54BB923ED85045F54AE7BA41 /* Products */ = {
+			isa = PBXGroup;
+			children = (
+				ED09C3657118586D2ADBEA09 /* BetterGDrive.app */,
+				FCD744C91DFB04DCC16D094D /* BetterGDriveTests.xctest */,
+			);
+			name = Products;
+			sourceTree = "<group>";
+		};
+		A06746444A5D89BCCD1593D4 = {
+			isa = PBXGroup;
+			children = (
+				3A03E9CCB7C60CD6779F90A2 /* App */,
+				BF3180BB3B2498F3618112E8 /* BetterGDriveTests */,
+				D6C89F99EA720C1AD1E998CF /* Core */,
+				53CFC6232D1EFD87BAE2AF3D /* Resources */,
+				ED6D6832DBA503BBA992F149 /* Views */,
+				54BB923ED85045F54AE7BA41 /* Products */,
+			);
+			sourceTree = "<group>";
+		};
+		BF3180BB3B2498F3618112E8 /* BetterGDriveTests */ = {
+			isa = PBXGroup;
+			children = (
+				8D8B3E880DA31C8F15EF933D /* ConfigStoreTests.swift */,
+				AD9B5083F04764E802A0FA6B /* ModelsTests.swift */,
+				972D22ECDB0427DD42A83A82 /* StatusStoreTests.swift */,
+			);
+			path = BetterGDriveTests;
+			sourceTree = "<group>";
+		};
+		D6C89F99EA720C1AD1E998CF /* Core */ = {
+			isa = PBXGroup;
+			children = (
+				D3AA1B7AA93880FC024CDC0F /* ConfigStore.swift */,
+				F6FD82430D8E1E23DE01BB31 /* KeychainStore.swift */,
+				51B7C97A01EF29A692582831 /* L.swift */,
+				A717629964ECE32E129DAF42 /* LocalFileWatcher.swift */,
+				7425894A7A9769EFCDE23162 /* Models.swift */,
+				EFE84D260D105896A9D883AC /* RcloneRC.swift */,
+				4E88A700D56228C2C81F415E /* StatusStore.swift */,
+			);
+			name = Core;
+			path = BetterGDrive/Core;
+			sourceTree = "<group>";
+		};
+		ED6D6832DBA503BBA992F149 /* Views */ = {
+			isa = PBXGroup;
+			children = (
+				30DC55FCACF65E2433641B33 /* DetailView.swift */,
+				646FFEECE02608E85FAC693C /* MainWindowView.swift */,
+				5155B5FED9908F056B68A68A /* MenuBarView.swift */,
+				C1088CFB156101789AC2B68D /* OnboardingView.swift */,
+			);
+			name = Views;
+			path = BetterGDrive/Views;
+			sourceTree = "<group>";
+		};
+/* End PBXGroup section */
+
+/* Begin PBXNativeTarget section */
+		81B4F51948C6B6BA33399CAA /* BetterGDriveTests */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = 658499073ED81C226FFD4FCC /* Build configuration list for PBXNativeTarget "BetterGDriveTests" */;
+			buildPhases = (
+				BC2BA43228235923B797A2AC /* Sources */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+				06AA76FD03847F249BF20EFA /* PBXTargetDependency */,
+			);
+			name = BetterGDriveTests;
+			packageProductDependencies = (
+			);
+			productName = BetterGDriveTests;
+			productReference = FCD744C91DFB04DCC16D094D /* BetterGDriveTests.xctest */;
+			productType = "com.apple.product-type.bundle.unit-test";
+		};
+		CC4F66F6B7A0E9780971D508 /* BetterGDrive */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = 3B3B49179B1C36C20CC62720 /* Build configuration list for PBXNativeTarget "BetterGDrive" */;
+			buildPhases = (
+				DCE7A2679C8030035AC606AD /* Sources */,
+				696E820CAF8316C412FC26FF /* Resources */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+			);
+			name = BetterGDrive;
+			packageProductDependencies = (
+			);
+			productName = BetterGDrive;
+			productReference = ED09C3657118586D2ADBEA09 /* BetterGDrive.app */;
+			productType = "com.apple.product-type.application";
+		};
+/* End PBXNativeTarget section */
+
+/* Begin PBXProject section */
+		56A169A4FDB47C3FC83FA42D /* Project object */ = {
+			isa = PBXProject;
+			attributes = {
+				BuildIndependentTargetsInParallel = YES;
+				LastUpgradeCheck = 1600;
+				TargetAttributes = {
+					81B4F51948C6B6BA33399CAA = {
+						DevelopmentTeam = 834JA84DX2;
+						ProvisioningStyle = Automatic;
+					};
+					CC4F66F6B7A0E9780971D508 = {
+						DevelopmentTeam = 834JA84DX2;
+						ProvisioningStyle = Automatic;
+					};
+				};
+			};
+			buildConfigurationList = 9BDC3246E3C852CB5B059495 /* Build configuration list for PBXProject "BetterGDrive" */;
+			developmentRegion = en;
+			hasScannedForEncodings = 0;
+			knownRegions = (
+				Base,
+				en,
+			);
+			mainGroup = A06746444A5D89BCCD1593D4;
+			minimizedProjectReferenceProxies = 1;
+			preferredProjectObjectVersion = 77;
+			productRefGroup = 54BB923ED85045F54AE7BA41 /* Products */;
+			projectDirPath = "";
+			projectRoot = "";
+			targets = (
+				CC4F66F6B7A0E9780971D508 /* BetterGDrive */,
+				81B4F51948C6B6BA33399CAA /* BetterGDriveTests */,
+			);
+		};
+/* End PBXProject section */
+
+/* Begin PBXResourcesBuildPhase section */
+		696E820CAF8316C412FC26FF /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				5B7E47581B9AC318ED86EF02 /* Assets.xcassets in Resources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXResourcesBuildPhase section */
+
+/* Begin PBXSourcesBuildPhase section */
+		BC2BA43228235923B797A2AC /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				8B2137163474F88DCDD20A32 /* ConfigStoreTests.swift in Sources */,
+				0ABEFFD3C165D3C9F4B8CE6B /* ModelsTests.swift in Sources */,
+				606F1B2E544472F431D32576 /* StatusStoreTests.swift in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		DCE7A2679C8030035AC606AD /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				65F2C62858118691A408CA73 /* BetterGDriveApp.swift in Sources */,
+				B49ACDC016BE2ADC279238F5 /* ConfigStore.swift in Sources */,
+				BC17E486ECECCF23348963A0 /* DetailView.swift in Sources */,
+				74D6E3EBC49440355D6DD843 /* KeychainStore.swift in Sources */,
+				86A6CF58721A6334E04E5861 /* L.swift in Sources */,
+				271C075951CDBCA1D0634873 /* LocalFileWatcher.swift in Sources */,
+				FE1B0FE1AF34803A85DAE07D /* MainWindowView.swift in Sources */,
+				161CF6CAA8196C694CDD8AD4 /* MenuBarView.swift in Sources */,
+				A9228EDFC95FE7D6BC2B7C67 /* Models.swift in Sources */,
+				84C54ED7EE331AFA8821CC04 /* OnboardingView.swift in Sources */,
+				36D688BC30C85E09F7F9DC71 /* RcloneRC.swift in Sources */,
+				C5C5FFFFED5FD59A17A743E0 /* StatusStore.swift in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXSourcesBuildPhase section */
+
+/* Begin PBXTargetDependency section */
+		06AA76FD03847F249BF20EFA /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = CC4F66F6B7A0E9780971D508 /* BetterGDrive */;
+			targetProxy = B905322573FEF3621636B16E /* PBXContainerItemProxy */;
+		};
+/* End PBXTargetDependency section */
+
+/* Begin XCBuildConfiguration section */
+		05BCBF9D54FDC7042943809D /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
+				CODE_SIGN_ENTITLEMENTS = BetterGDrive/App/BetterGDrive.entitlements;
+				CODE_SIGN_IDENTITY = "Apple Development";
+				COMBINE_HIDPI_IMAGES = YES;
+				CURRENT_PROJECT_VERSION = 1;
+				DEBUG_INFORMATION_FORMAT = dwarf;
+				ENABLE_HARDENED_RUNTIME = YES;
+				ENABLE_TESTABILITY = YES;
+				INFOPLIST_FILE = BetterGDrive/App/Info.plist;
+				LD_RUNPATH_SEARCH_PATHS = "$(inherited) @executable_path/../Frameworks";
+				MARKETING_VERSION = 1.0.0;
+				PRODUCT_BUNDLE_IDENTIFIER = com.juanrossi.bettergdrive;
+				PRODUCT_NAME = "Better GDrive";
+				SDKROOT = macosx;
+				SWIFT_OPTIMIZATION_LEVEL = "-Onone";
+			};
+			name = Debug;
+		};
+		067691CADC54BB8C9223F3B7 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
+				CODE_SIGN_ENTITLEMENTS = BetterGDrive/App/BetterGDrive.entitlements;
+				CODE_SIGN_IDENTITY = "Developer ID Application";
+				COMBINE_HIDPI_IMAGES = YES;
+				CURRENT_PROJECT_VERSION = 1;
+				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
+				ENABLE_HARDENED_RUNTIME = YES;
+				ENABLE_TESTABILITY = NO;
+				INFOPLIST_FILE = BetterGDrive/App/Info.plist;
+				LD_RUNPATH_SEARCH_PATHS = "$(inherited) @executable_path/../Frameworks";
+				MARKETING_VERSION = 1.0.0;
+				PRODUCT_BUNDLE_IDENTIFIER = com.juanrossi.bettergdrive;
+				PRODUCT_NAME = "Better GDrive";
+				SDKROOT = macosx;
+				SWIFT_OPTIMIZATION_LEVEL = "-O";
+			};
+			name = Release;
+		};
+		617F007DE543570524DCE264 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				CLANG_ANALYZER_NONNULL = YES;
+				CLANG_ANALYZER_NUMBER_OBJECT_CONVERSION = YES_AGGRESSIVE;
+				CLANG_CXX_LANGUAGE_STANDARD = "gnu++14";
+				CLANG_CXX_LIBRARY = "libc++";
+				CLANG_ENABLE_MODULES = YES;
+				CLANG_ENABLE_OBJC_ARC = YES;
+				CLANG_ENABLE_OBJC_WEAK = YES;
+				CLANG_WARN_BLOCK_CAPTURE_AUTORELEASING = YES;
+				CLANG_WARN_BOOL_CONVERSION = YES;
+				CLANG_WARN_COMMA = YES;
+				CLANG_WARN_CONSTANT_CONVERSION = YES;
+				CLANG_WARN_DEPRECATED_OBJC_IMPLEMENTATIONS = YES;
+				CLANG_WARN_DIRECT_OBJC_ISA_USAGE = YES_ERROR;
+				CLANG_WARN_DOCUMENTATION_COMMENTS = YES;
+				CLANG_WARN_EMPTY_BODY = YES;
+				CLANG_WARN_ENUM_CONVERSION = YES;
+				CLANG_WARN_INFINITE_RECURSION = YES;
+				CLANG_WARN_INT_CONVERSION = YES;
+				CLANG_WARN_NON_LITERAL_NULL_CONVERSION = YES;
+				CLANG_WARN_OBJC_IMPLICIT_RETAIN_SELF = YES;
+				CLANG_WARN_OBJC_LITERAL_CONVERSION = YES;
+				CLANG_WARN_OBJC_ROOT_CLASS = YES_ERROR;
+				CLANG_WARN_QUOTED_INCLUDE_IN_FRAMEWORK_HEADER = YES;
+				CLANG_WARN_RANGE_LOOP_ANALYSIS = YES;
+				CLANG_WARN_STRICT_PROTOTYPES = YES;
+				CLANG_WARN_SUSPICIOUS_MOVE = YES;
+				CLANG_WARN_UNGUARDED_AVAILABILITY = YES_AGGRESSIVE;
+				CLANG_WARN_UNREACHABLE_CODE = YES;
+				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
+				CODE_SIGN_STYLE = Automatic;
+				COPY_PHASE_STRIP = NO;
+				DEBUG_INFORMATION_FORMAT = dwarf;
+				DEVELOPMENT_TEAM = 834JA84DX2;
+				ENABLE_STRICT_OBJC_MSGSEND = YES;
+				ENABLE_TESTABILITY = YES;
+				GCC_C_LANGUAGE_STANDARD = gnu11;
+				GCC_DYNAMIC_NO_PIC = NO;
+				GCC_NO_COMMON_BLOCKS = YES;
+				GCC_OPTIMIZATION_LEVEL = 0;
+				GCC_PREPROCESSOR_DEFINITIONS = (
+					"$(inherited)",
+					"DEBUG=1",
+				);
+				GCC_WARN_64_TO_32_BIT_CONVERSION = YES;
+				GCC_WARN_ABOUT_RETURN_TYPE = YES_ERROR;
+				GCC_WARN_UNDECLARED_SELECTOR = YES;
+				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
+				GCC_WARN_UNUSED_FUNCTION = YES;
+				GCC_WARN_UNUSED_VARIABLE = YES;
+				MACOSX_DEPLOYMENT_TARGET = 14.0;
+				MTL_ENABLE_DEBUG_INFO = INCLUDE_SOURCE;
+				MTL_FAST_MATH = YES;
+				ONLY_ACTIVE_ARCH = YES;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SDKROOT = macosx;
+				SWIFT_ACTIVE_COMPILATION_CONDITIONS = DEBUG;
+				SWIFT_OPTIMIZATION_LEVEL = "-Onone";
+				SWIFT_VERSION = 5.9;
+			};
+			name = Debug;
+		};
+		B82F4DA2DAE6CCEDEDCC14D4 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				BUNDLE_LOADER = "$(TEST_HOST)";
+				COMBINE_HIDPI_IMAGES = YES;
+				GENERATE_INFOPLIST_FILE = YES;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/../Frameworks",
+					"@loader_path/../Frameworks",
+				);
+				PRODUCT_BUNDLE_IDENTIFIER = com.juanrossi.bettergdrive.tests;
+				SDKROOT = macosx;
+				TEST_HOST = "$(BUILT_PRODUCTS_DIR)/Better GDrive.app/Contents/MacOS/Better GDrive";
+			};
+			name = Release;
+		};
+		DE8084112FE884175011F674 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				CLANG_ANALYZER_NONNULL = YES;
+				CLANG_ANALYZER_NUMBER_OBJECT_CONVERSION = YES_AGGRESSIVE;
+				CLANG_CXX_LANGUAGE_STANDARD = "gnu++14";
+				CLANG_CXX_LIBRARY = "libc++";
+				CLANG_ENABLE_MODULES = YES;
+				CLANG_ENABLE_OBJC_ARC = YES;
+				CLANG_ENABLE_OBJC_WEAK = YES;
+				CLANG_WARN_BLOCK_CAPTURE_AUTORELEASING = YES;
+				CLANG_WARN_BOOL_CONVERSION = YES;
+				CLANG_WARN_COMMA = YES;
+				CLANG_WARN_CONSTANT_CONVERSION = YES;
+				CLANG_WARN_DEPRECATED_OBJC_IMPLEMENTATIONS = YES;
+				CLANG_WARN_DIRECT_OBJC_ISA_USAGE = YES_ERROR;
+				CLANG_WARN_DOCUMENTATION_COMMENTS = YES;
+				CLANG_WARN_EMPTY_BODY = YES;
+				CLANG_WARN_ENUM_CONVERSION = YES;
+				CLANG_WARN_INFINITE_RECURSION = YES;
+				CLANG_WARN_INT_CONVERSION = YES;
+				CLANG_WARN_NON_LITERAL_NULL_CONVERSION = YES;
+				CLANG_WARN_OBJC_IMPLICIT_RETAIN_SELF = YES;
+				CLANG_WARN_OBJC_LITERAL_CONVERSION = YES;
+				CLANG_WARN_OBJC_ROOT_CLASS = YES_ERROR;
+				CLANG_WARN_QUOTED_INCLUDE_IN_FRAMEWORK_HEADER = YES;
+				CLANG_WARN_RANGE_LOOP_ANALYSIS = YES;
+				CLANG_WARN_STRICT_PROTOTYPES = YES;
+				CLANG_WARN_SUSPICIOUS_MOVE = YES;
+				CLANG_WARN_UNGUARDED_AVAILABILITY = YES_AGGRESSIVE;
+				CLANG_WARN_UNREACHABLE_CODE = YES;
+				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
+				CODE_SIGN_STYLE = Automatic;
+				COPY_PHASE_STRIP = NO;
+				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
+				DEVELOPMENT_TEAM = 834JA84DX2;
+				ENABLE_NS_ASSERTIONS = NO;
+				ENABLE_STRICT_OBJC_MSGSEND = YES;
+				GCC_C_LANGUAGE_STANDARD = gnu11;
+				GCC_NO_COMMON_BLOCKS = YES;
+				GCC_WARN_64_TO_32_BIT_CONVERSION = YES;
+				GCC_WARN_ABOUT_RETURN_TYPE = YES_ERROR;
+				GCC_WARN_UNDECLARED_SELECTOR = YES;
+				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
+				GCC_WARN_UNUSED_FUNCTION = YES;
+				GCC_WARN_UNUSED_VARIABLE = YES;
+				MACOSX_DEPLOYMENT_TARGET = 14.0;
+				MTL_ENABLE_DEBUG_INFO = NO;
+				MTL_FAST_MATH = YES;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SDKROOT = macosx;
+				SWIFT_COMPILATION_MODE = wholemodule;
+				SWIFT_OPTIMIZATION_LEVEL = "-O";
+				SWIFT_VERSION = 5.9;
+			};
+			name = Release;
+		};
+		DFB9EE2F67DD350295BC023C /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				BUNDLE_LOADER = "$(TEST_HOST)";
+				COMBINE_HIDPI_IMAGES = YES;
+				GENERATE_INFOPLIST_FILE = YES;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/../Frameworks",
+					"@loader_path/../Frameworks",
+				);
+				PRODUCT_BUNDLE_IDENTIFIER = com.juanrossi.bettergdrive.tests;
+				SDKROOT = macosx;
+				TEST_HOST = "$(BUILT_PRODUCTS_DIR)/Better GDrive.app/Contents/MacOS/Better GDrive";
+			};
+			name = Debug;
+		};
+/* End XCBuildConfiguration section */
+
+/* Begin XCConfigurationList section */
+		3B3B49179B1C36C20CC62720 /* Build configuration list for PBXNativeTarget "BetterGDrive" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				05BCBF9D54FDC7042943809D /* Debug */,
+				067691CADC54BB8C9223F3B7 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Debug;
+		};
+		658499073ED81C226FFD4FCC /* Build configuration list for PBXNativeTarget "BetterGDriveTests" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				DFB9EE2F67DD350295BC023C /* Debug */,
+				B82F4DA2DAE6CCEDEDCC14D4 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Debug;
+		};
+		9BDC3246E3C852CB5B059495 /* Build configuration list for PBXProject "BetterGDrive" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				617F007DE543570524DCE264 /* Debug */,
+				DE8084112FE884175011F674 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Debug;
+		};
+/* End XCConfigurationList section */
+	};
+	rootObject = 56A169A4FDB47C3FC83FA42D /* Project object */;
+}
