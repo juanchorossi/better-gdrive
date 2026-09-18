@@ -686,7 +686,7 @@ struct MainSettingsView: View {
                         .font(.title2).foregroundStyle(.secondary)
                     VStack(alignment: .leading, spacing: 2) {
                         Text("Auto-sync")
-                        Text("Periodic full sync as a safety net. File changes are detected instantly via FSEvents regardless of this setting.")
+                        Text("Runs a full sync every so often as a safety net. New or changed files are always detected and synced immediately, with or without this.")
                             .font(.caption).foregroundStyle(.secondary)
                     }
                     Spacer()
