@@ -202,7 +202,12 @@ final class StatusStore: ObservableObject {
             await RcloneRC.ensureDaemon()
             let savedBwlimit = configStore.config.bwlimit
             await RcloneRC.setBwlimit(savedBwlimit)
-            await MainActor.run { daemonReady = true; self.startWatchers() }
+            await MainActor.run {
+                daemonReady = true
+                self.startWatchers()
+                self.triggerAutoSyncIfDue()
+                self.retryErrorJobs()
+            }
             let info = try? await RcloneRC.fetchGoogleUserInfo()
             await MainActor.run { googleAccount = info; isLoadingAccount = false }
         }
@@ -223,15 +228,6 @@ final class StatusStore: ObservableObject {
         configCancellable = configStore.objectWillChange
             .receive(on: DispatchQueue.main)
             .sink { [weak self] _ in DispatchQueue.main.async { self?.syncJobsFromConfig() } }
-
-        // Trigger auto-sync check on launch (after daemon is ready)
-        Task {
-            try? await Task.sleep(nanoseconds: 4_000_000_000)
-            await MainActor.run {
-                self.triggerAutoSyncIfDue()
-                self.retryErrorJobs()
-            }
-        }
     }
 
     // MARK: - Public actions
@@ -243,7 +239,9 @@ final class StatusStore: ObservableObject {
         guard !needsSetup else { return }
         for def in jobDefinitions {
             guard let job = jobs.first(where: { $0.id == def.id }),
-                  job.status == .error, !job.isRunning else { continue }
+                  !job.isRunning, job.status != .paused, job.status != .tokenError else { continue }
+            // Jobs that were in error last session are loaded as .unknown, so check UserDefaults
+            guard UserDefaults.standard.string(forKey: "status.\(def.id)") == "error" else { continue }
             Task { await startJob(def) }
         }
     }
@@ -374,13 +372,9 @@ final class StatusStore: ObservableObject {
             if savedState == "paused"      { status = .paused }
             else if lastSync == nil        { status = .unknown }
             else if savedState == "ok"     { status = .ok }
-            else                           { status = .error }
-            var job = SyncJob(id: def.id, name: def.name, status: status,
-                              lastSync: lastSync, errors: 0, isRunning: false)
-            if status == .error {
-                job.errorMessage = UserDefaults.standard.string(forKey: "errorMessage.\(def.id)")
-            }
-            return job
+            else                           { status = .unknown }  // retry fires once daemon is ready
+            return SyncJob(id: def.id, name: def.name, status: status,
+                           lastSync: lastSync, errors: 0, isRunning: false)
         }
     }
 

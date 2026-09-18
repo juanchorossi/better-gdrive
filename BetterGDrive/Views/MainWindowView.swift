@@ -280,8 +280,11 @@ struct MainJobRow: View {
                 .font(.caption).foregroundStyle(.orange)
                 .lineLimit(1).truncationMode(.tail)
         } else if job.status == .unknown {
-            Text("Never synced")
-                .font(.caption).foregroundStyle(.tertiary)
+            if let display = job.lastSyncDisplay {
+                Text(display).font(.caption).foregroundStyle(.secondary)
+            } else {
+                Text("Never synced").font(.caption).foregroundStyle(.tertiary)
+            }
         } else if let display = job.lastSyncDisplay {
             Text(display)
                 .font(.caption).foregroundStyle(.secondary)

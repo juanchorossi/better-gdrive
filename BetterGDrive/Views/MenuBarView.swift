@@ -281,8 +281,11 @@ struct JobRow: View {
             Text("Paused")
                 .font(.caption2).foregroundStyle(.blue)
         } else if job.status == .unknown {
-            Text("Never synced")
-                .font(.caption2).foregroundStyle(.tertiary)
+            if let display = job.lastSyncDisplay {
+                Text(display).font(.caption2).foregroundStyle(.secondary)
+            } else {
+                Text("Never synced").font(.caption2).foregroundStyle(.tertiary)
+            }
         } else if job.hasLocalChanges {
             Text("Changes detected…")
                 .font(.caption2).foregroundStyle(.secondary)
