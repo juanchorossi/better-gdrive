@@ -686,7 +686,7 @@ struct MainSettingsView: View {
                         .font(.title2).foregroundStyle(.secondary)
                     VStack(alignment: .leading, spacing: 2) {
                         Text("Auto-sync")
-                        Text("Safety net on top of instant change detection.")
+                        Text("Also sync on a schedule, not just when files change.")
                             .font(.caption).foregroundStyle(.secondary)
                     }
                     Spacer()
