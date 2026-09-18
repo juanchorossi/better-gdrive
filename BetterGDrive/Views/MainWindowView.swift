@@ -684,7 +684,11 @@ struct MainSettingsView: View {
                 HStack(spacing: 12) {
                     Image(systemName: "clock.arrow.2.circlepath")
                         .font(.title2).foregroundStyle(.secondary)
-                    Text("Auto-sync")
+                    VStack(alignment: .leading, spacing: 2) {
+                        Text("Auto-sync")
+                        Text("Periodic full sync as a safety net. File changes are detected instantly via FSEvents regardless of this setting.")
+                            .font(.caption).foregroundStyle(.secondary)
+                    }
                     Spacer()
                     Picker("", selection: Binding(
                         get: { store.configStore.config.syncIntervalMinutes },
