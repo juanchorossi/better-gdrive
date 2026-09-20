@@ -140,12 +140,8 @@ final class StatusStore: ObservableObject {
             if let p = running.progress, p > 0 { return "\(Int(p * 100))%" }
             return ""
         }
-        guard let oldest = jobs.compactMap(\.lastSync).min() else { return "" }
-        let diff = -oldest.timeIntervalSinceNow
-        if diff < 60    { return L.General.now }
-        if diff < 3600  { return "\(Int(diff / 60))m" }
-        if diff < 86400 { return "\(Int(diff / 3600))h" }
-        return "\(Int(diff / 86400))d"
+        if hasError || hasTokenError { return "!" }
+        return ""
     }
 
     // MARK: - Init
