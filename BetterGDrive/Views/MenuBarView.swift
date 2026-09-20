@@ -256,8 +256,9 @@ struct JobRow: View {
     private var rowSubtitle: some View {
         if job.isRunning {
             if job.isFinishing {
-                Text("Finishing…")
-                    .font(.caption2).foregroundStyle(.secondary)
+                let parts = (["Finishing…"] + [job.filesInfo].compactMap { $0 })
+                Text(parts.joined(separator: "  ·  "))
+                    .font(.caption2).foregroundStyle(.secondary).monospacedDigit()
             } else {
                 let parts = [job.speed, job.filesInfo, job.eta.map { "ETA \($0)" }].compactMap { $0 }
                 if parts.isEmpty, let started = job.syncStarted {

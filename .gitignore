@@ -34,3 +34,7 @@ CLAUDE.md
 
 # Serena IDE tool
 .serena/
+
+# Generated DMG
+*.dmg
+.dmg-staging/

@@ -258,8 +258,9 @@ struct MainJobRow: View {
                 .font(.caption).foregroundStyle(.blue)
         } else if job.isRunning {
             if job.isFinishing {
-                Text("Finishing…")
-                    .font(.caption).foregroundStyle(.secondary)
+                let parts = (["Finishing…"] + [job.filesInfo].compactMap { $0 })
+                Text(parts.joined(separator: "  ·  "))
+                    .font(.caption).foregroundStyle(.secondary).monospacedDigit()
             } else {
                 let parts = [job.speed, job.filesInfo, job.eta.map { "ETA \($0)" }].compactMap { $0 }
                 if parts.isEmpty, let started = job.syncStarted {
