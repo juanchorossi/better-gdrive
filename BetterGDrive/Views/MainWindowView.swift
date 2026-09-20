@@ -179,7 +179,7 @@ struct MainStatusView: View {
             if s < 60    { return "Just synced" }
             if s < 3600  { return "Last sync \(Int(s/60))m ago" }
             if s < 86400 { return "Last sync \(Int(s/3600))h ago" }
-            return "Last sync \(Int(s/86400))d ago"
+            return "Synced \(d.formatted(.dateTime.month(.abbreviated).day()))"
         } ?? L.Status.noHistory
     }
 }

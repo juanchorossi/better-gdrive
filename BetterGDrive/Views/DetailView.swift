@@ -28,7 +28,7 @@ struct DetailView: View {
                 .font(.title3)
             VStack(alignment: .leading, spacing: 1) {
                 Text(job.name).font(.title3.bold())
-                Text(job.isRunning ? L.Status.syncing : (job.relativeTime.map { "Last sync \($0) ago" } ?? L.Status.noHistory))
+                Text(job.isRunning ? L.Status.syncing : (job.lastSyncDisplay.map { "Last sync \($0)" } ?? L.Status.noHistory))
                     .font(.caption)
                     .foregroundStyle(.secondary)
             }
