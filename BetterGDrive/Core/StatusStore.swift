@@ -507,7 +507,17 @@ final class StatusStore: ObservableObject {
             // Live activity: add newly transferred files without waiting for job to finish
             let xfers = (try? await RcloneRC.transferred(group: group)) ?? []
             if !xfers.isEmpty {
-                await MainActor.run { self.addLiveActivity(xfers, configId: configId, jobName: jobName) }
+                await MainActor.run {
+                    self.addLiveActivity(xfers, configId: configId, jobName: jobName)
+                    // During finishing with few files, show the name(s) under the progress bar
+                    if let i = self.jobs.firstIndex(where: { $0.id == configId }),
+                       self.jobs[i].isFinishing {
+                        let names = xfers
+                            .filter { $0.checked != true && ($0.error == nil || $0.error!.isEmpty) }
+                            .map { URL(fileURLWithPath: $0.name).lastPathComponent }
+                        if names.count <= 3 { self.jobs[i].currentFile = names.joined(separator: ", ") }
+                    }
+                }
             }
 
             do {
