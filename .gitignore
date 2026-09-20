@@ -31,3 +31,6 @@ BetterGDrive/Resources/rclone
 
 # Private Claude instructions (not relevant for contributors)
 CLAUDE.md
+
+# Serena IDE tool
+.serena/
