@@ -92,23 +92,22 @@ Powered by **[rclone](https://rclone.org)** — the battle-tested, open-source c
 
 There's no pre-built binary yet. Build from source (takes about 5 minutes):
 
-### 1. Install dependencies
+### 1. Install build tools
 
 ```bash
-brew install rclone xcodegen
+brew install xcodegen
 ```
 
-### 2. Clone and generate the Xcode project
+### 2. Clone the repo
 
 ```bash
 git clone https://github.com/juanchorossi/better-gdrive.git
 cd better-gdrive
-xcodegen generate
 ```
 
 ### 3. Add the rclone binary
 
-The bundled rclone binary is not included in the repo (84 MB). Download the macOS build from [rclone.org/downloads](https://rclone.org/downloads/) and place it at:
+The bundled rclone binary is not included in the repo (84 MB). Download the macOS arm64 build from [rclone.org/downloads](https://rclone.org/downloads/) and place it at:
 
 ```
 BetterGDrive/Resources/rclone
@@ -118,19 +117,28 @@ BetterGDrive/Resources/rclone
 chmod +x BetterGDrive/Resources/rclone
 ```
 
-### 4. Configure rclone
+### 4. Build and install
 
 ```bash
-rclone config
-# → New remote → name it "gdrive" → type "drive" → follow OAuth prompts
+./install.sh
 ```
 
-### 5. Build and run
+The script regenerates the Xcode project, compiles the app, copies it to `/Applications`, and launches it.
 
-```bash
-open BetterGDrive.xcodeproj
-# Cmd+R to build and run
-```
+---
+
+## First launch
+
+When Better GDrive opens for the first time it shows a setup window. You'll need your GCP OAuth credentials — see [GCP setup](#gcp-setup-one-time-setup-to-get-your-own-oauth-credentials) below if you haven't created them yet.
+
+1. Enter your **Client ID** and **Client Secret**
+2. Click **Connect with Google Drive** — your browser opens the Google sign-in page
+3. Sign in with the Google account you want to sync
+4. Come back to the app — Better GDrive opens the main window automatically
+
+Your credentials are saved in the system Keychain. The OAuth token lands in `~/.config/rclone/rclone.conf` and is never sent anywhere other than Google.
+
+To reinstall after pulling new changes, just run `./install.sh` again.
 
 ---
 
