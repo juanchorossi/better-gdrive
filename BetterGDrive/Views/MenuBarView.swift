@@ -290,7 +290,8 @@ struct JobRow: View {
         } else if job.hasLocalChanges {
             Text("Changes detected…")
                 .font(.caption2).foregroundStyle(.secondary)
-        } else if let display = job.lastSyncDisplay {
+        } else if let date = job.lastSync, -date.timeIntervalSinceNow < 86400,
+                  let display = job.lastSyncDisplay {
             Text(display)
                 .font(.caption2).foregroundStyle(.secondary)
         }
