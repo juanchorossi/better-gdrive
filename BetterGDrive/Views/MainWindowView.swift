@@ -805,10 +805,6 @@ struct JobDefinitionRow: View {
                         .font(.caption).foregroundStyle(.secondary)
                         .lineLimit(1).truncationMode(.middle)
                 }
-                if let job, job.status != .unknown, let display = job.lastSyncDisplay {
-                    Text("Synced \(display)")
-                        .font(.caption2).foregroundStyle(.secondary)
-                }
             }
 
             Spacer()
