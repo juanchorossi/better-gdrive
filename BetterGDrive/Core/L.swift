@@ -49,14 +49,15 @@ enum L {
     }
 
     enum Ops {
-        static let uploaded = "Uploaded"
-        static let updated  = "Updated"
-        static let deleted  = "Deleted"
-        static let moved    = "Moved"
+        static let uploaded   = "Uploaded"
+        static let updated    = "Updated"
+        static let deleted    = "Deleted"
+        static let moved      = "Moved"
+        static let downloaded = "Downloaded"
     }
 
     enum Settings {
-        static let syncedFolders    = "Synced folders"
+        static let syncedFolders    = "Folders"
         static let addFolder        = "Add folder"
         static let googleAccount    = "Google Account"
         static let reconnectToken   = "Reconnect token"

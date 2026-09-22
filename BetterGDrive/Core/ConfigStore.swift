@@ -11,17 +11,20 @@ struct JobDefinition: Codable, Identifiable {
     var filterFile: String?
     var gitPullFirst: Bool?
     var excludePatterns: [String]
+    var direction: SyncDirection
 
     init(id: String, name: String, localPath: String, drivePath: String,
          transfers: Int, copyMode: Bool, filterFile: String? = nil,
-         gitPullFirst: Bool? = nil, excludePatterns: [String] = []) {
+         gitPullFirst: Bool? = nil, excludePatterns: [String] = [],
+         direction: SyncDirection = .upload) {
         self.id = id; self.name = name; self.localPath = localPath
         self.drivePath = drivePath; self.transfers = transfers
         self.copyMode = copyMode; self.filterFile = filterFile
         self.gitPullFirst = gitPullFirst; self.excludePatterns = excludePatterns
+        self.direction = direction
     }
 
-    // Backward-compatible decoding: existing configs without excludePatterns default to []
+    // Backward-compatible decoding: existing configs without excludePatterns/direction default to safe values
     init(from decoder: Decoder) throws {
         let c = try decoder.container(keyedBy: CodingKeys.self)
         id              = try c.decode(String.self, forKey: .id)
@@ -33,6 +36,7 @@ struct JobDefinition: Codable, Identifiable {
         filterFile      = try c.decodeIfPresent(String.self, forKey: .filterFile)
         gitPullFirst    = try c.decodeIfPresent(Bool.self,   forKey: .gitPullFirst)
         excludePatterns = (try? c.decode([String].self, forKey: .excludePatterns)) ?? []
+        direction       = (try? c.decode(SyncDirection.self, forKey: .direction)) ?? .upload
     }
 
     var localURL: URL {
@@ -44,6 +48,10 @@ struct JobDefinition: Codable, Identifiable {
     var driveDisplayPath: String {
         drivePath.replacingOccurrences(of: "gdrive:", with: "")
     }
+
+    // Source and destination labels, direction-aware
+    var sourceDisplayPath: String { direction == .upload ? localDisplayPath : driveDisplayPath }
+    var destDisplayPath: String   { direction == .upload ? driveDisplayPath : localDisplayPath }
 }
 
 // Common patterns users typically want to exclude from cloud sync

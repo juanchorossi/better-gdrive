@@ -48,7 +48,7 @@ struct DetailView: View {
             }
             HStack {
                 if let speed = job.speed {
-                    Label(speed, systemImage: "arrow.up")
+                    Label(speed, systemImage: job.direction == .download ? "arrow.down" : "arrow.up")
                         .font(.caption).foregroundStyle(.secondary)
                 }
                 Spacer()

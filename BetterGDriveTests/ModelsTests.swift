@@ -235,3 +235,114 @@ final class ActivityOpTests: XCTestCase {
         XCTAssertEqual(ActivityOp.moved.icon,    "arrow.right.circle")
     }
 }
+
+// MARK: - SyncDirection / JobDefinition display paths
+
+final class SyncDirectionTests: XCTestCase {
+
+    func testDefaultDirectionIsUpload() {
+        let job = JobDefinition(id: "x", name: "X", localPath: "~/Docs",
+                                drivePath: "gdrive:Docs", transfers: 4, copyMode: false)
+        XCTAssertEqual(job.direction, .upload)
+    }
+
+    func testUploadSourceIsLocal() {
+        let job = makeJob(direction: .upload)
+        XCTAssertEqual(job.sourceDisplayPath, job.localDisplayPath)
+    }
+
+    func testUploadDestIsDrive() {
+        let job = makeJob(direction: .upload)
+        XCTAssertEqual(job.destDisplayPath, job.driveDisplayPath)
+    }
+
+    func testDownloadSourceIsDrive() {
+        let job = makeJob(direction: .download)
+        XCTAssertEqual(job.sourceDisplayPath, job.driveDisplayPath)
+    }
+
+    func testDownloadDestIsLocal() {
+        let job = makeJob(direction: .download)
+        XCTAssertEqual(job.destDisplayPath, job.localDisplayPath)
+    }
+
+    // JSON round-trip preserves .download
+    func testJSONRoundTripDownloadDirection() throws {
+        let job = makeJob(direction: .download)
+        let data = try JSONEncoder().encode(SyncConfig(bwlimit: "off", jobs: [job]))
+        let decoded = try JSONDecoder().decode(SyncConfig.self, from: data)
+        XCTAssertEqual(decoded.jobs.first?.direction, .download)
+    }
+
+    // JSON round-trip preserves .upload
+    func testJSONRoundTripUploadDirection() throws {
+        let job = makeJob(direction: .upload)
+        let data = try JSONEncoder().encode(SyncConfig(bwlimit: "off", jobs: [job]))
+        let decoded = try JSONDecoder().decode(SyncConfig.self, from: data)
+        XCTAssertEqual(decoded.jobs.first?.direction, .upload)
+    }
+
+    // Old config.json without "direction" key must decode as .upload (backward compat)
+    func testBackwardCompatNoDirectionKeyDefaultsToUpload() throws {
+        let json = """
+        {"bwlimit":"off","jobs":[{
+            "id":"old","name":"Old","localPath":"~/Old",
+            "drivePath":"gdrive:Old","transfers":4,"copyMode":false,
+            "excludePatterns":[]
+        }]}
+        """.data(using: .utf8)!
+        let decoded = try JSONDecoder().decode(SyncConfig.self, from: json)
+        XCTAssertEqual(decoded.jobs.first?.direction, .upload)
+    }
+
+    // sourceDisplayPath / destDisplayPath flip correctly
+    func testDisplayPathsFlipBetweenDirections() {
+        let upload = makeJob(direction: .upload)
+        let download = makeJob(direction: .download)
+        XCTAssertEqual(upload.sourceDisplayPath, download.destDisplayPath)
+        XCTAssertEqual(upload.destDisplayPath,   download.sourceDisplayPath)
+    }
+
+    private func makeJob(direction: SyncDirection) -> JobDefinition {
+        JobDefinition(id: "d", name: "Dir", localPath: "~/Local",
+                      drivePath: "gdrive:Remote", transfers: 4, copyMode: false,
+                      direction: direction)
+    }
+}
+
+// MARK: - ActivityItem.drivePath
+
+final class ActivityItemDrivePathTests: XCTestCase {
+
+    func testDrivePathStoredAndRetrieved() {
+        let item = ActivityItem(timestamp: Date(), jobName: "J", filePath: "file.txt",
+                                operation: .uploaded, drivePath: "gdrive:Photos")
+        XCTAssertEqual(item.drivePath, "gdrive:Photos")
+    }
+
+    func testDrivePathDefaultsToNil() {
+        let item = ActivityItem(timestamp: Date(), jobName: "J", filePath: "file.txt",
+                                operation: .uploaded)
+        XCTAssertNil(item.drivePath)
+    }
+
+    // Old persisted JSON without "drivePath" must decode with nil (backward compat)
+    func testJSONBackwardCompatNoDrivePath() throws {
+        let json = """
+        [{"id":"00000000-0000-0000-0000-000000000000",
+          "timestamp":0,"jobName":"J","filePath":"file.txt","operation":"uploaded"}]
+        """.data(using: .utf8)!
+        let items = try JSONDecoder().decode([ActivityItem].self, from: json)
+        XCTAssertNil(items.first?.drivePath)
+    }
+
+    func testJSONRoundTripWithDrivePath() throws {
+        let item = ActivityItem(timestamp: Date(timeIntervalSince1970: 1000),
+                                jobName: "J", filePath: "img.png",
+                                operation: .downloaded, drivePath: "gdrive:EDM")
+        let data = try JSONEncoder().encode([item])
+        let decoded = try JSONDecoder().decode([ActivityItem].self, from: data)
+        XCTAssertEqual(decoded.first?.drivePath, "gdrive:EDM")
+        XCTAssertEqual(decoded.first?.operation, .downloaded)
+    }
+}

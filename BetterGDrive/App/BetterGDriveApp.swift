@@ -25,7 +25,11 @@ struct BetterGDriveApp: App {
                 }
         } label: {
             HStack(spacing: 0) {
-                Image(systemName: store.menuBarIcon)
+                Image("MenuBarIcon")
+                    .renderingMode(.template)
+                    .resizable()
+                    .scaledToFit()
+                    .frame(height: 16)
                 let suffix = store.menuBarSuffix
                 if !suffix.isEmpty {
                     Text("\u{2006}\(suffix)")

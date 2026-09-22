@@ -219,10 +219,14 @@ enum RcloneRC {
     // MARK: Sync control
 
     static func startSync(job: JobDefinition) async throws -> Int {
-        if job.gitPullFirst == true { await gitPull(path: job.localPath) }
+        if job.direction != .download && job.gitPullFirst == true { await gitPull(path: job.localPath) }
 
-        let src = job.localPath.replacingOccurrences(of: "~", with: NSHomeDirectory())
-        let endpoint = job.copyMode ? "sync/copy" : "sync/sync"
+        let localExpanded = job.localPath.replacingOccurrences(of: "~", with: NSHomeDirectory())
+        let src = job.direction == .download ? job.drivePath : localExpanded
+        let dst = job.direction == .download ? localExpanded  : job.drivePath
+
+        // Download jobs never delete local files regardless of copyMode setting.
+        let endpoint = (job.copyMode || job.direction == .download) ? "sync/copy" : "sync/sync"
 
         // Reject on-the-fly backend connection strings (start with ":" or contain inline
         // key=value syntax). Only named remotes in the form "remotename:path" are accepted.
@@ -234,7 +238,7 @@ enum RcloneRC {
 
         var body: [String: Any] = [
             "srcFs": src,
-            "dstFs": job.drivePath,
+            "dstFs": dst,
             "_async": true,
             "createEmptySrcDirs": true,
             "_config": ["Transfers": job.transfers] as [String: Any]
@@ -256,6 +260,59 @@ enum RcloneRC {
         return resp.jobid
     }
 
+    // Dry-runs a sync-mode upload job and returns the paths that would be deleted from Drive.
+    // Returns [] on any error so callers can fail open.
+    static func dryRunDeletions(job: JobDefinition) async -> [String] {
+        let logURL = FileManager.default.homeDirectoryForCurrentUser
+            .appendingPathComponent("Library/Logs/bettergdrive-rclone.log")
+
+        let startOffset: UInt64
+        if let fh = try? FileHandle(forReadingFrom: logURL) {
+            startOffset = fh.seekToEndOfFile()
+            fh.closeFile()
+        } else {
+            startOffset = 0
+        }
+
+        let localExpanded = job.localPath.replacingOccurrences(of: "~", with: NSHomeDirectory())
+        var body: [String: Any] = [
+            "srcFs": localExpanded,
+            "dstFs": job.drivePath,
+            "_async": true,
+            "_config": ["DryRun": true, "Transfers": job.transfers] as [String: Any]
+        ]
+
+        var filterParams: [String: Any] = [:]
+        if let ff = job.filterFile {
+            filterParams["FilterFrom"] = [ff.replacingOccurrences(of: "~", with: NSHomeDirectory())]
+        }
+        if !job.excludePatterns.isEmpty { filterParams["Exclude"] = job.excludePatterns }
+        if !filterParams.isEmpty { body["_filter"] = filterParams }
+
+        guard let resp = try? await post("sync/sync", body: body) as RCSyncResponse else { return [] }
+
+        for _ in 0..<60 {
+            try? await Task.sleep(nanoseconds: 500_000_000)
+            guard let status = try? await jobStatus(resp.jobid) else { break }
+            if status.finished { break }
+        }
+        await stopJob(resp.jobid)
+
+        guard let fh = try? FileHandle(forReadingFrom: logURL) else { return [] }
+        fh.seek(toFileOffset: startOffset)
+        let data = fh.readDataToEndOfFile()
+        fh.closeFile()
+
+        guard let text = String(data: data, encoding: .utf8) else { return [] }
+        return text.components(separatedBy: "\n").compactMap { line -> String? in
+            guard line.contains(": Would delete"),
+                  let range = line.range(of: "INFO  : ") else { return nil }
+            let after = String(line[range.upperBound...])
+            guard let end = after.range(of: ": Would delete") else { return nil }
+            return String(after[..<end.lowerBound])
+        }
+    }
+
     static func stopJob(_ id: Int) async {
         _ = try? await post("job/stop", body: ["jobid": id]) as RCEmpty
     }
@@ -272,6 +329,32 @@ enum RcloneRC {
         struct Resp: Decodable { let transferred: [RCTransferred]? }
         let r: Resp = try await post("core/transferred", body: ["group": group])
         return r.transferred ?? []
+    }
+
+    // MARK: - Drive folder browser
+
+    struct DriveItem: Decodable, Identifiable {
+        let name: String
+        let path: String
+        let isDir: Bool
+
+        var id: String { path }
+
+        enum CodingKeys: String, CodingKey {
+            case name = "Name"
+            case path = "Path"
+            case isDir = "IsDir"
+        }
+    }
+
+    static func listDriveFolders(remote: String) async throws -> [DriveItem] {
+        struct Resp: Decodable { let list: [DriveItem] }
+        let r: Resp = try await post("operations/list", body: [
+            "fs": "gdrive:",
+            "remote": remote,
+            "opt": ["noModTime": true, "noMimeType": true] as [String: Any]
+        ])
+        return r.list.filter { $0.isDir }.sorted { $0.name.localizedCaseInsensitiveCompare($1.name) == .orderedAscending }
     }
 
     // MARK: Private helpers

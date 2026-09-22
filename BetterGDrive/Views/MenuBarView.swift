@@ -56,6 +56,9 @@ struct MenuBarView: View {
             footer
         }
         .frame(width: 340)
+        .sheet(item: $store.pendingDeletion) { pending in
+            DeleteConfirmationSheet(pending: pending).environmentObject(store)
+        }
     }
 
     private var emptyContent: some View {
@@ -78,9 +81,7 @@ struct MenuBarView: View {
 
     private var header: some View {
         HStack {
-            if store.isAnySyncRunning {
-                SyncIconView(color: store.headerColor, isActive: true)
-            } else {
+            if !store.isAnySyncRunning {
                 Image(systemName: store.menuBarIcon).foregroundStyle(store.headerColor)
             }
             Text(store.headerTitle)
@@ -201,7 +202,6 @@ struct JobRow: View {
     let job: SyncJob
     let store: StatusStore
     @State private var hovered = false
-    @Environment(\.openWindow) private var openWindow
 
     var body: some View {
         VStack(alignment: .leading, spacing: 5) {
@@ -209,7 +209,14 @@ struct JobRow: View {
                 statusIcon
 
                 VStack(alignment: .leading, spacing: 1) {
-                    Text(job.name).fontWeight(.medium)
+                    HStack(spacing: 4) {
+                        Text(job.name).fontWeight(.medium)
+                        if job.direction == .download {
+                            Image(systemName: "arrow.down.circle.fill")
+                                .font(.caption2)
+                                .foregroundStyle(.purple)
+                        }
+                    }
                     rowSubtitle
                 }
 
@@ -223,13 +230,11 @@ struct JobRow: View {
                     }
                     Image(systemName: "pause.circle")
                         .foregroundStyle(.secondary)
-                        .onTapGesture { store.pause(job) }
+                        .opacity(hovered ? 1 : 0)
                 } else if job.status == .paused {
                     Image(systemName: "play.circle")
                         .foregroundStyle(.blue)
-                        .onTapGesture { store.run(job) }
                 } else {
-                    // Play on hover only
                     Image(systemName: "play.circle")
                         .foregroundStyle(.secondary)
                         .opacity(hovered ? 1 : 0)
@@ -244,8 +249,7 @@ struct JobRow: View {
         .onHover { hovered = $0 }
         .onTapGesture {
             if job.isRunning {
-                store.selectedJobId = job.id
-                openWindow(id: "detail")
+                store.pause(job)
             } else {
                 store.run(job)
             }
@@ -336,6 +340,12 @@ struct JobRow: View {
 
 struct ActivityRow: View {
     let item: ActivityItem
+    @EnvironmentObject var store: StatusStore
+
+    private var hasKnownDrivePath: Bool {
+        item.drivePath != nil
+            || store.jobDefinitions.contains(where: { $0.name == item.jobName })
+    }
 
     var body: some View {
         HStack(spacing: 10) {
@@ -373,13 +383,31 @@ struct ActivityRow: View {
 
             Spacer()
 
-            HStack(spacing: 4) {
-                Text(item.operation.description)
+            Group {
+                if hasKnownDrivePath {
+                    Button {
+                        let query = item.fileName.addingPercentEncoding(withAllowedCharacters: .urlQueryAllowed) ?? item.fileName
+                        if let url = URL(string: "https://drive.google.com/drive/search?q=\(query)") {
+                            NSWorkspace.shared.open(url)
+                        }
+                    } label: {
+                        HStack(spacing: 4) {
+                            Text(item.operation.description)
+                            Image(systemName: item.operation.icon)
+                            Image(systemName: "arrow.up.right").font(.caption2)
+                        }
+                        .font(.caption)
+                        .foregroundStyle(Color.accentColor)
+                    }
+                    .buttonStyle(.plain)
+                } else {
+                    HStack(spacing: 4) {
+                        Text(item.operation.description)
+                        Image(systemName: item.operation.icon)
+                    }
                     .font(.caption)
                     .foregroundStyle(item.operation.color)
-                Image(systemName: item.operation.icon)
-                    .font(.caption)
-                    .foregroundStyle(item.operation.color)
+                }
             }
         }
         .padding(.horizontal, 14)

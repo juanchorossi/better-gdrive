@@ -2,6 +2,11 @@ import Foundation
 import SwiftUI
 import UniformTypeIdentifiers
 
+enum SyncDirection: String, Codable {
+    case upload   // local → Drive (default)
+    case download // Drive → local
+}
+
 struct SyncJob: Identifiable {
     let id: String
     let name: String
@@ -19,6 +24,7 @@ struct SyncJob: Identifiable {
     var syncStarted: Date?  // set when isRunning becomes true
     var errorMessage: String?  // last rclone error, shown in subtitle
     var hasLocalChanges: Bool = false  // true during FSEvents debounce window
+    var direction: SyncDirection = .upload
 
     // Returns a display string that already includes the right suffix.
     var lastSyncDisplay: String? {
@@ -48,12 +54,15 @@ struct ActivityItem: Identifiable, Codable {
     var filePath: String
     var operation: ActivityOp
 
-    init(timestamp: Date, jobName: String, filePath: String, operation: ActivityOp) {
+    var drivePath: String?
+
+    init(timestamp: Date, jobName: String, filePath: String, operation: ActivityOp, drivePath: String? = nil) {
         self.id = UUID()
         self.timestamp = timestamp
         self.jobName = jobName
         self.filePath = filePath
         self.operation = operation
+        self.drivePath = drivePath
     }
 
     var fileName: String { URL(fileURLWithPath: filePath).lastPathComponent }
@@ -98,32 +107,35 @@ struct ActivityItem: Identifiable, Codable {
 }
 
 enum ActivityOp: String, Codable, CustomStringConvertible {
-    case uploaded, updated, deleted, moved
+    case uploaded, updated, deleted, moved, downloaded
 
     var description: String {
         switch self {
-        case .uploaded: return L.Ops.uploaded
-        case .updated:  return L.Ops.updated
-        case .deleted:  return L.Ops.deleted
-        case .moved:    return L.Ops.moved
+        case .uploaded:   return L.Ops.uploaded
+        case .updated:    return L.Ops.updated
+        case .deleted:    return L.Ops.deleted
+        case .moved:      return L.Ops.moved
+        case .downloaded: return L.Ops.downloaded
         }
     }
 
     var icon: String {
         switch self {
-        case .uploaded: return "arrow.up.circle"
-        case .updated:  return "arrow.triangle.2.circlepath"
-        case .deleted:  return "trash"
-        case .moved:    return "arrow.right.circle"
+        case .uploaded:   return "arrow.up.circle"
+        case .updated:    return "arrow.triangle.2.circlepath"
+        case .deleted:    return "trash"
+        case .moved:      return "arrow.right.circle"
+        case .downloaded: return "arrow.down.circle"
         }
     }
 
     var color: Color {
         switch self {
-        case .uploaded: return .blue
-        case .updated:  return .green
-        case .deleted:  return .red
-        case .moved:    return .orange
+        case .uploaded:   return .blue
+        case .updated:    return .green
+        case .deleted:    return .red
+        case .moved:      return .orange
+        case .downloaded: return .purple
         }
     }
 }

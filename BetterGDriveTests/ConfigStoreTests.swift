@@ -134,15 +134,48 @@ final class ConfigStoreTests: XCTestCase {
         XCTAssertFalse(store.config.bwlimit.isEmpty)
     }
 
+    // MARK: - Download direction persistence
+
+    func testAddDownloadJobPersistsDirection() {
+        let store = ConfigStore()
+        store.addJob(makeJob(id: "dl", direction: .download))
+
+        let reloaded = ConfigStore()
+        XCTAssertEqual(reloaded.config.jobs.first(where: { $0.id == "dl" })?.direction, .download)
+    }
+
+    func testUpdateJobPreservesDirection() {
+        let store = ConfigStore()
+        store.addJob(makeJob(id: "u3", direction: .download))
+
+        // Update only the name; direction must survive
+        var updated = makeJob(id: "u3", name: "Renamed", direction: .download)
+        store.updateJob(updated)
+
+        let reloaded = ConfigStore()
+        XCTAssertEqual(reloaded.config.jobs.first(where: { $0.id == "u3" })?.direction, .download)
+        XCTAssertEqual(reloaded.config.jobs.first(where: { $0.id == "u3" })?.name, "Renamed")
+    }
+
+    func testAddUploadJobDefaultDirectionPersists() {
+        let store = ConfigStore()
+        store.addJob(makeJob(id: "up"))  // direction defaults to .upload
+
+        let reloaded = ConfigStore()
+        XCTAssertEqual(reloaded.config.jobs.first(where: { $0.id == "up" })?.direction, .upload)
+    }
+
     // MARK: - Helper
 
     private func makeJob(
         id: String = "test",
         name: String = "Test",
         localPath: String = "~/Documents",
-        drivePath: String = "gdrive:Docs"
+        drivePath: String = "gdrive:Docs",
+        direction: SyncDirection = .upload
     ) -> JobDefinition {
         JobDefinition(id: id, name: name, localPath: localPath,
-                      drivePath: drivePath, transfers: 4, copyMode: false)
+                      drivePath: drivePath, transfers: 4, copyMode: false,
+                      direction: direction)
     }
 }

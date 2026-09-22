@@ -9,6 +9,13 @@ struct GoogleUserInfo {
     let pictureURL: URL?
 }
 
+struct PendingDeletion: Identifiable {
+    let id = UUID()
+    let job: SyncJob
+    let definition: JobDefinition
+    let filesToDelete: [String]
+}
+
 final class StatusStore: ObservableObject {
     @Published var jobs: [SyncJob] = []
     @Published var activity: [ActivityItem] = []
@@ -17,6 +24,7 @@ final class StatusStore: ObservableObject {
     @Published var googleAccount: GoogleUserInfo?
     @Published var isLoadingAccount = true
     @Published var needsSetup: Bool
+    @Published var pendingDeletion: PendingDeletion? = nil
 
     let configStore = ConfigStore()
     var jobDefinitions: [JobDefinition] { configStore.config.jobs }
@@ -39,6 +47,7 @@ final class StatusStore: ObservableObject {
     private var seenTransferKeys: Set<String> = []
 
     // File watchers: one per job, started after daemon is ready
+    private var dryRunCheckingIds: Set<String> = []
     private var fileWatchers: [String: LocalFileWatcher] = [:]
     // Debounce tasks: cancelled and recreated on each FSEvent
     private var debounceTask: [String: Task<Void, Never>] = [:]
@@ -66,7 +75,7 @@ final class StatusStore: ObservableObject {
             if diff < 60    { return "Synced just now" }
             if diff < 3600  { return "Synced \(Int(diff/60))m ago" }
             if diff < 86400 { return "Synced \(Int(diff/3600))h ago" }
-            return "Synced \(Int(diff/86400))d ago"
+            return "Synced \(oldest.formatted(.dateTime.month(.abbreviated).day()))"
         }
         return L.Status.upToDate
     }
@@ -280,7 +289,43 @@ final class StatusStore: ObservableObject {
 
     func run(_ job: SyncJob) {
         guard let def = jobDefinitions.first(where: { $0.id == job.id }) else { return }
+        guard !def.copyMode && def.direction == .upload else {
+            Task { await startJob(def) }
+            return
+        }
+        guard !dryRunCheckingIds.contains(def.id) else { return }
+        dryRunCheckingIds.insert(def.id)
+        Task {
+            let deletions = await RcloneRC.dryRunDeletions(job: def)
+            await MainActor.run {
+                self.dryRunCheckingIds.remove(def.id)
+                if deletions.isEmpty {
+                    Task { await self.startJob(def) }
+                } else {
+                    self.pendingDeletion = PendingDeletion(job: job, definition: def, filesToDelete: deletions)
+                }
+            }
+        }
+    }
+
+    func confirmDeleteAndSync() {
+        guard let pending = pendingDeletion else { return }
+        let def = pending.definition
+        pendingDeletion = nil
         Task { await startJob(def) }
+    }
+
+    func switchToCopyAndSync() {
+        guard let pending = pendingDeletion else { return }
+        var def = pending.definition
+        def.copyMode = true
+        configStore.updateJob(def)
+        pendingDeletion = nil
+        Task { await startJob(def) }
+    }
+
+    func cancelPendingDeletion() {
+        pendingDeletion = nil
     }
 
     func runDefinition(_ def: JobDefinition) {
@@ -290,7 +335,8 @@ final class StatusStore: ObservableObject {
             let ok = UserDefaults.standard.string(forKey: "status.\(def.id)") == "ok"
             jobs.append(SyncJob(id: def.id, name: def.name,
                                 status: lastSync != nil ? (ok ? .ok : .error) : .unknown,
-                                lastSync: lastSync, errors: 0, isRunning: false))
+                                lastSync: lastSync, errors: 0, isRunning: false,
+                                direction: def.direction))
         }
         Task { await startJob(def) }
     }
@@ -370,7 +416,8 @@ final class StatusStore: ObservableObject {
             else if savedState == "ok"     { status = .ok }
             else                           { status = .unknown }  // retry fires once daemon is ready
             return SyncJob(id: def.id, name: def.name, status: status,
-                           lastSync: lastSync, errors: 0, isRunning: false)
+                           lastSync: lastSync, errors: 0, isRunning: false,
+                           direction: def.direction)
         }
     }
 
@@ -385,7 +432,8 @@ final class StatusStore: ObservableObject {
             let ok       = UserDefaults.standard.string(forKey: "status.\(def.id)") == "ok"
             let status: JobStatus = lastSync != nil ? (ok ? .ok : .error) : .unknown
             var job = SyncJob(id: def.id, name: def.name,
-                              status: status, lastSync: lastSync, errors: 0, isRunning: false)
+                              status: status, lastSync: lastSync, errors: 0, isRunning: false,
+                              direction: def.direction)
             if status == .error {
                 job.errorMessage = UserDefaults.standard.string(forKey: "errorMessage.\(def.id)")
             }
@@ -407,8 +455,8 @@ final class StatusStore: ObservableObject {
             debounceTask.removeValue(forKey: id)
             pendingSyncAfterRun.remove(id)
         }
-        // Start watchers for new jobs
-        for def in jobDefinitions where fileWatchers[def.id] == nil {
+        // Start watchers for new upload jobs only — download jobs have Drive as source
+        for def in jobDefinitions where fileWatchers[def.id] == nil && def.direction == .upload {
             let path = (def.localPath as NSString).expandingTildeInPath
             let jobId = def.id
             let watcher = LocalFileWatcher(path: path) { [weak self] in
@@ -626,12 +674,15 @@ final class StatusStore: ObservableObject {
         }
 
         // Clear seen keys for this job; add any remaining transfers not yet shown
+        let op: ActivityOp = jobDefinitions.first(where: { $0.id == configId })?.direction == .download
+            ? .downloaded : .uploaded
+        let jobDrivePath = jobDefinitions.first(where: { $0.id == configId })?.drivePath
         let pendingItems = transferred
             .filter { $0.checked != true && ($0.error == nil || $0.error!.isEmpty) }
             .compactMap { item -> ActivityItem? in
                 let key = "\(configId):\(item.name)"
                 guard !seenTransferKeys.contains(key) else { return nil }
-                return ActivityItem(timestamp: Date(), jobName: jobName, filePath: item.name, operation: .uploaded)
+                return ActivityItem(timestamp: Date(), jobName: jobName, filePath: item.name, operation: op, drivePath: jobDrivePath)
             }
         seenTransferKeys = seenTransferKeys.filter { !$0.hasPrefix("\(configId):") }
         if !pendingItems.isEmpty {
@@ -642,13 +693,16 @@ final class StatusStore: ObservableObject {
 
     @MainActor
     private func addLiveActivity(_ transferred: [RCTransferred], configId: String, jobName: String) {
+        let jobDef = jobDefinitions.first(where: { $0.id == configId })
+        let op: ActivityOp = jobDef?.direction == .download ? .downloaded : .uploaded
+        let jobDrivePath = jobDef?.drivePath
         let newItems = transferred
             .filter { $0.checked != true && ($0.error == nil || $0.error!.isEmpty) }
             .compactMap { item -> ActivityItem? in
                 let key = "\(configId):\(item.name)"
                 guard !seenTransferKeys.contains(key) else { return nil }
                 seenTransferKeys.insert(key)
-                return ActivityItem(timestamp: Date(), jobName: jobName, filePath: item.name, operation: .uploaded)
+                return ActivityItem(timestamp: Date(), jobName: jobName, filePath: item.name, operation: op, drivePath: jobDrivePath)
             }
         if !newItems.isEmpty {
             activity = Array((newItems + activity).prefix(500))

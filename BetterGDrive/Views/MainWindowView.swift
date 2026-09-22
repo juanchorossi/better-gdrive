@@ -47,12 +47,10 @@ struct MainWindowView: View {
         }
         .navigationTitle(L.General.appName)
         .frame(minWidth: 720, minHeight: 560)
+        .sheet(item: $store.pendingDeletion) { pending in
+            DeleteConfirmationSheet(pending: pending).environmentObject(store)
+        }
         .toolbar {
-            ToolbarItem(placement: .automatic) {
-                Button { store.refresh() } label: {
-                    Label(L.General.refresh, systemImage: "arrow.clockwise")
-                }
-            }
             ToolbarItem(placement: .automatic) {
                 Button {
                     store.isAnySyncRunning ? store.stopAll() : store.runAll()
@@ -81,13 +79,14 @@ struct MainStatusView: View {
                 statusBanner
                 Divider()
                 ScrollView {
-                    VStack(spacing: 1) {
+                    VStack(spacing: 0) {
                         ForEach(store.jobs) { job in
                             MainJobRow(job: job)
-                            Divider().padding(.leading, 64)
+                            if job.id != store.jobs.last?.id {
+                                Divider().padding(.leading, 64)
+                            }
                         }
                     }
-                    .padding(.top, 4)
                 }
             }
         }
@@ -205,8 +204,11 @@ struct MainJobRow: View {
                 Spacer()
 
                 if job.isRunning {
-                    // Percentage — hidden during finishing (progress=nil then)
-                    if let pct = job.progress {
+                    if let x = job.transferred {
+                        Text(x)
+                            .font(.caption2.monospacedDigit())
+                            .foregroundStyle(.secondary)
+                    } else if let pct = job.progress {
                         Text("\(Int(pct * 100))%")
                             .font(.callout.monospacedDigit())
                             .foregroundStyle(.blue)
@@ -306,12 +308,6 @@ struct MainJobRow: View {
                     .lineLimit(1).truncationMode(.middle)
                     .padding(.leading, 44)
             }
-            if let x = job.transferred {
-                Text(x)
-                    .font(.caption2).foregroundStyle(.secondary).monospacedDigit()
-                    .frame(maxWidth: .infinity, alignment: .trailing)
-                    .padding(.leading, 44)
-            }
         }
     }
 
@@ -328,8 +324,7 @@ struct MainJobRow: View {
 
     private var iconBackground: Color {
         if job.isRunning { return Color.blue.opacity(0.12) }
-        if job.status == .unknown { return Color.primary.opacity(0.05) }
-        return job.status.color.opacity(0.12)
+        return Color.primary.opacity(0.05)
     }
 }
 
@@ -424,7 +419,13 @@ struct MainActivityView: View {
 
 struct ActivityTableRow: View {
     let item: ActivityItem
+    @EnvironmentObject var store: StatusStore
     @State private var hovered = false
+
+    private var hasKnownDrivePath: Bool {
+        item.drivePath != nil
+            || store.jobDefinitions.contains(where: { $0.name == item.jobName })
+    }
 
     var body: some View {
         HStack(spacing: 10) {
@@ -441,12 +442,33 @@ struct ActivityTableRow: View {
                 .lineLimit(1).truncationMode(.tail)
                 .frame(width: 80, alignment: .leading)
 
-            HStack(spacing: 3) {
-                Image(systemName: item.operation.icon)
-                Text(item.operation.description)
+            Group {
+                if hasKnownDrivePath {
+                    Button {
+                        let query = item.fileName.addingPercentEncoding(withAllowedCharacters: .urlQueryAllowed) ?? item.fileName
+                        if let url = URL(string: "https://drive.google.com/drive/search?q=\(query)") {
+                            NSWorkspace.shared.open(url)
+                        }
+                    } label: {
+                        HStack(spacing: 3) {
+                            Image(systemName: item.operation.icon)
+                            Text(item.operation.description)
+                            Image(systemName: "arrow.up.right").font(.caption2)
+                        }
+                        .font(.caption)
+                        .foregroundStyle(Color.accentColor)
+                    }
+                    .buttonStyle(.plain)
+                    .help("Open in Google Drive")
+                } else {
+                    HStack(spacing: 3) {
+                        Image(systemName: item.operation.icon)
+                        Text(item.operation.description)
+                    }
+                    .font(.caption)
+                    .foregroundStyle(item.operation.color)
+                }
             }
-            .font(.caption)
-            .foregroundStyle(item.operation.color)
             .frame(width: 90, alignment: .leading)
 
             Text(item.exactTime)
@@ -475,8 +497,8 @@ struct MainSettingsView: View {
         ScrollView {
             VStack(alignment: .leading, spacing: 0) {
                 foldersSection
-                tokenSection
                 bandwidthSection
+                tokenSection
                 launchAtLoginSection
             }
             .padding(24)
@@ -518,13 +540,6 @@ struct MainSettingsView: View {
     private var foldersSection: some View {
         settingsSection(L.Settings.syncedFolders) {
             VStack(spacing: 0) {
-                ForEach(store.jobDefinitions) { def in
-                    JobDefinitionRow(def: def, job: store.jobs.first { $0.id == def.id }) {
-                        jobToDelete = def
-                    }
-                    Divider().padding(.leading, 52)
-                }
-
                 Button {
                     showAddSheet = true
                 } label: {
@@ -535,11 +550,23 @@ struct MainSettingsView: View {
                         Text(L.Settings.addFolder)
                         Spacer()
                     }
-                    .padding(14)
+                    .padding(.horizontal, 14)
+                    .padding(.vertical, 18)
                     .contentShape(Rectangle())
                 }
                 .buttonStyle(.plain)
                 .foregroundStyle(.blue)
+
+                if !store.jobDefinitions.isEmpty { Divider().padding(.leading, 52) }
+
+                ForEach(store.jobDefinitions) { def in
+                    JobDefinitionRow(def: def, job: store.jobs.first { $0.id == def.id }) {
+                        jobToDelete = def
+                    }
+                    if def.id != store.jobDefinitions.last?.id {
+                        Divider().padding(.leading, 52)
+                    }
+                }
             }
         }
     }
@@ -758,27 +785,29 @@ struct JobDefinitionRow: View {
                 .frame(width: 36)
 
             VStack(alignment: .leading, spacing: 3) {
-                Text(def.name).fontWeight(.medium)
+                HStack(spacing: 5) {
+                    Text(def.name).fontWeight(.medium)
+                        .lineLimit(1).truncationMode(.tail)
+                    if def.direction == .download {
+                        Image(systemName: "arrow.down.circle.fill")
+                            .font(.caption2)
+                            .foregroundStyle(.purple)
+                    }
+                }
                 HStack(spacing: 4) {
-                    Text(def.localDisplayPath)
+                    Text(def.sourceDisplayPath)
                         .font(.caption).foregroundStyle(.secondary)
+                        .lineLimit(1).truncationMode(.middle)
                     Image(systemName: "arrow.right")
                         .font(.caption2).foregroundStyle(.tertiary)
-                    Text(def.driveDisplayPath)
+                        .fixedSize()
+                    Text(def.destDisplayPath)
                         .font(.caption).foregroundStyle(.secondary)
+                        .lineLimit(1).truncationMode(.middle)
                 }
-                HStack(spacing: 6) {
-                    if !def.excludePatterns.isEmpty {
-                        Text("\(def.excludePatterns.count) exclusion\(def.excludePatterns.count == 1 ? "" : "s")")
-                            .font(.caption2).foregroundStyle(.orange)
-                    }
-                    if let job, job.status != .unknown, let display = job.lastSyncDisplay {
-                        if !def.excludePatterns.isEmpty {
-                            Text("·").font(.caption2).foregroundStyle(.tertiary)
-                        }
-                        Text("Synced \(display)")
-                            .font(.caption2).foregroundStyle(.secondary)
-                    }
+                if let job, job.status != .unknown, let display = job.lastSyncDisplay {
+                    Text("Synced \(display)")
+                        .font(.caption2).foregroundStyle(.secondary)
                 }
             }
 
@@ -835,6 +864,7 @@ struct EditJobSheet: View {
     @State private var copyMode: Bool
     @State private var excludePatterns: [String]
     @State private var customPattern = ""
+    @State private var customPatternDuplicate = false
 
     init(def: JobDefinition, onSave: @escaping (JobDefinition) -> Void) {
         self.def = def
@@ -850,8 +880,10 @@ struct EditJobSheet: View {
             HStack {
                 VStack(alignment: .leading, spacing: 2) {
                     Text(def.name).font(.title2.bold())
-                    Text("\(def.localDisplayPath) → \(def.driveDisplayPath)")
+                        .lineLimit(1).truncationMode(.tail)
+                    Text("\(def.sourceDisplayPath) → \(def.destDisplayPath)")
                         .font(.caption).foregroundStyle(.secondary)
+                        .lineLimit(1).truncationMode(.middle)
                 }
                 Spacer()
                 Button { dismiss() } label: {
@@ -866,7 +898,7 @@ struct EditJobSheet: View {
 
             ScrollView {
                 VStack(alignment: .leading, spacing: 20) {
-                    SyncTypePicker(copyMode: $copyMode)
+                    SyncTypePicker(copyMode: $copyMode, direction: def.direction)
 
                     // Exclude patterns
                     VStack(alignment: .leading, spacing: 8) {
@@ -926,17 +958,28 @@ struct EditJobSheet: View {
                         .background(Color.primary.opacity(0.05))
                         .clipShape(RoundedRectangle(cornerRadius: 8))
 
-                        HStack {
-                            TextField("Custom pattern, e.g. *.log", text: $customPattern)
-                                .textFieldStyle(.roundedBorder)
-                            Button("Add") {
-                                let p = customPattern.trimmingCharacters(in: .whitespaces)
-                                if !p.isEmpty && !excludePatterns.contains(p) {
-                                    excludePatterns.append(p)
+                        VStack(alignment: .leading, spacing: 4) {
+                            HStack {
+                                TextField("Custom pattern, e.g. *.log", text: $customPattern)
+                                    .textFieldStyle(.roundedBorder)
+                                    .onChange(of: customPattern) { _ in customPatternDuplicate = false }
+                                    .onSubmit {
+                                        let p = customPattern.trimmingCharacters(in: .whitespaces)
+                                        guard !p.isEmpty else { return }
+                                        if excludePatterns.contains(p) { customPatternDuplicate = true }
+                                        else { excludePatterns.append(p); customPattern = ""; customPatternDuplicate = false }
+                                    }
+                                Button("Add") {
+                                    let p = customPattern.trimmingCharacters(in: .whitespaces)
+                                    guard !p.isEmpty else { return }
+                                    if excludePatterns.contains(p) { customPatternDuplicate = true }
+                                    else { excludePatterns.append(p); customPattern = ""; customPatternDuplicate = false }
                                 }
-                                customPattern = ""
+                                .disabled(customPattern.trimmingCharacters(in: .whitespaces).isEmpty)
                             }
-                            .disabled(customPattern.trimmingCharacters(in: .whitespaces).isEmpty)
+                            if customPatternDuplicate {
+                                Text("Already in the list").font(.caption).foregroundStyle(.red)
+                            }
                         }
                     }
                 }
@@ -974,23 +1017,23 @@ struct AddJobSheet: View {
     @State private var localPath = ""
     @State private var driveDest = ""
     @State private var copyMode = false
-    @State private var showingPicker = false
+    @State private var direction: SyncDirection = .upload
+    @State private var showingLocalPicker = false
+    @State private var showingDrivePicker = false
     @State private var excludePatterns: [String] = ExcludePreset.allCases.map(\.rawValue)
     @State private var customPattern = ""
+    @State private var customPatternDuplicate = false
     @FocusState private var driveFieldFocused: Bool
 
     var canSave: Bool { !localPath.isEmpty && !driveDest.isEmpty }
 
     var body: some View {
         VStack(alignment: .leading, spacing: 0) {
-            // Header
             HStack {
-                Text(L.Settings.addFolderTitle)
-                    .font(.title2.bold())
+                Text(L.Settings.addFolderTitle).font(.title2.bold())
                 Spacer()
                 Button { dismiss() } label: {
-                    Image(systemName: "xmark.circle.fill")
-                        .foregroundStyle(.secondary).font(.title3)
+                    Image(systemName: "xmark.circle.fill").foregroundStyle(.secondary).font(.title3)
                 }
                 .buttonStyle(.plain)
             }
@@ -1000,125 +1043,20 @@ struct AddJobSheet: View {
 
             ScrollView {
                 VStack(alignment: .leading, spacing: 20) {
+                    DirectionPicker(direction: $direction)
 
-                    // Local folder picker
-                    VStack(alignment: .leading, spacing: 8) {
-                        Text(L.Settings.localFolder).font(.subheadline.bold())
-                        Button { showingPicker = true } label: {
-                            HStack(spacing: 10) {
-                                Image(systemName: localPath.isEmpty ? "folder.badge.plus" : "folder.fill")
-                                    .font(.title2)
-                                    .foregroundStyle(localPath.isEmpty ? Color.secondary : Color.blue)
-                                VStack(alignment: .leading, spacing: 2) {
-                                    if localPath.isEmpty {
-                                        Text("Choose a folder…").foregroundStyle(.secondary)
-                                    } else {
-                                        Text(URL(fileURLWithPath: localPath).lastPathComponent).fontWeight(.medium)
-                                        Text(localPath.replacingOccurrences(of: NSHomeDirectory(), with: "~"))
-                                            .font(.caption).foregroundStyle(.secondary)
-                                            .lineLimit(1).truncationMode(.middle)
-                                    }
-                                }
-                                Spacer()
-                                if !localPath.isEmpty {
-                                    Text("Change").font(.caption).foregroundStyle(.blue)
-                                }
-                            }
-                            .padding(12)
-                            .frame(maxWidth: .infinity, alignment: .leading)
-                            .background(Color.primary.opacity(0.05))
-                            .clipShape(RoundedRectangle(cornerRadius: 8))
-                            .contentShape(Rectangle())
-                        }
-                        .buttonStyle(.plain)
+                    // Field order is direction-aware: source always comes first
+                    if direction == .download {
+                        driveField
+                        localFolderField
+                    } else {
+                        localFolderField
+                        driveField
                     }
 
-                    // Google Drive destination
-                    VStack(alignment: .leading, spacing: 8) {
-                        Text(L.Settings.driveDestination).font(.subheadline.bold())
-                        HStack(spacing: 0) {
-                            Text("gdrive:")
-                                .foregroundStyle(.secondary).font(.callout.monospaced())
-                                .padding(.leading, 10).padding(.trailing, 4)
-                            TextField(L.Settings.drivePlaceholder, text: $driveDest)
-                                .focused($driveFieldFocused).padding(.trailing, 10)
-                        }
-                        .padding(.vertical, 8)
-                        .background(Color.primary.opacity(0.05))
-                        .clipShape(RoundedRectangle(cornerRadius: 8))
-                        .overlay(RoundedRectangle(cornerRadius: 8).stroke(Color.primary.opacity(0.12)))
-                    }
+                    SyncTypePicker(copyMode: $copyMode, direction: direction)
 
-                    SyncTypePicker(copyMode: $copyMode)
-
-                    // Exclude patterns
-                    VStack(alignment: .leading, spacing: 8) {
-                        let allPresets = ExcludePreset.allCases.map(\.rawValue)
-                        let allOn = allPresets.allSatisfy { excludePatterns.contains($0) }
-                        HStack {
-                            Text("Exclude from sync").font(.subheadline.bold())
-                            Spacer()
-                            HStack(spacing: 6) {
-                                Text(allOn ? "Deselect all" : "Select all").font(.caption)
-                                Toggle("", isOn: Binding(
-                                    get: { allOn },
-                                    set: { on in
-                                        if on { for p in allPresets where !excludePatterns.contains(p) { excludePatterns.append(p) } }
-                                        else  { excludePatterns.removeAll { allPresets.contains($0) } }
-                                    }
-                                )).labelsHidden().toggleStyle(.checkbox)
-                            }
-                            .padding(.trailing, 12)
-                        }
-                        let custom2 = excludePatterns.filter { p in !ExcludePreset.allCases.map(\.rawValue).contains(p) }
-                        VStack(spacing: 0) {
-                            ForEach(ExcludePreset.allCases) { preset in
-                                let isOn = excludePatterns.contains(preset.rawValue)
-                                HStack(spacing: 10) {
-                                    Image(systemName: preset.icon).foregroundStyle(.secondary).frame(width: 20)
-                                    Text(preset.label)
-                                    Spacer()
-                                    Toggle("", isOn: Binding(
-                                        get: { isOn },
-                                        set: { on in
-                                            if on { excludePatterns.append(preset.rawValue) }
-                                            else  { excludePatterns.removeAll { $0 == preset.rawValue } }
-                                        }
-                                    )).labelsHidden()
-                                }
-                                .padding(.horizontal, 12).padding(.vertical, 8)
-                                Divider().padding(.leading, 42)
-                            }
-                            ForEach(custom2, id: \.self) { p in
-                                HStack(spacing: 10) {
-                                    Image(systemName: "line.3.horizontal.decrease")
-                                        .foregroundStyle(.secondary).frame(width: 20)
-                                    Text(p).font(.system(.body, design: .monospaced))
-                                    Spacer()
-                                    Button { excludePatterns.removeAll { $0 == p } } label: {
-                                        Image(systemName: "trash")
-                                            .font(.callout)
-                                            .foregroundStyle(.red.opacity(0.7))
-                                    }.buttonStyle(.plain)
-                                }
-                                .padding(.horizontal, 12).padding(.vertical, 8)
-                                Divider().padding(.leading, 42)
-                            }
-                        }
-                        .background(Color.primary.opacity(0.05))
-                        .clipShape(RoundedRectangle(cornerRadius: 8))
-
-                        HStack {
-                            TextField("Custom pattern, e.g. *.log", text: $customPattern)
-                                .textFieldStyle(.roundedBorder)
-                            Button("Add") {
-                                let p = customPattern.trimmingCharacters(in: .whitespaces)
-                                if !p.isEmpty && !excludePatterns.contains(p) { excludePatterns.append(p) }
-                                customPattern = ""
-                            }
-                            .disabled(customPattern.trimmingCharacters(in: .whitespaces).isEmpty)
-                        }
-                    }
+                    excludePatternsSection
                 }
                 .padding(20)
             }
@@ -1138,8 +1076,10 @@ struct AddJobSheet: View {
                         name: folderName,
                         localPath: localPath.replacingOccurrences(of: NSHomeDirectory(), with: "~"),
                         drivePath: "gdrive:\(driveDest)",
-                        transfers: 4, copyMode: copyMode,
-                        excludePatterns: excludePatterns
+                        transfers: 4,
+                        copyMode: copyMode,
+                        excludePatterns: excludePatterns,
+                        direction: direction
                     )
                     onAdd(job)
                     dismiss()
@@ -1151,15 +1091,325 @@ struct AddJobSheet: View {
             .padding(20)
         }
         .frame(width: 480, height: 620)
-        .fileImporter(isPresented: $showingPicker, allowedContentTypes: [.folder]) { result in
+        .sheet(isPresented: $showingDrivePicker) {
+            DriveFolderPicker { selected in driveDest = selected }
+        }
+        .fileImporter(isPresented: $showingLocalPicker, allowedContentTypes: [.folder]) { result in
             if case .success(let url) = result {
                 localPath = url.path
-                if driveDest.isEmpty { driveDest = url.lastPathComponent }
-                DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
-                    driveFieldFocused = true
+                if direction == .upload && driveDest.isEmpty { driveDest = url.lastPathComponent }
+                DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) { driveFieldFocused = true }
+            }
+        }
+    }
+
+    // MARK: - Sub-sections
+
+    @ViewBuilder
+    private var localFolderField: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            Text(direction == .upload ? "Local folder (source)" : "Local folder (destination)")
+                .font(.subheadline.bold())
+            Button { showingLocalPicker = true } label: {
+                HStack(spacing: 10) {
+                    Image(systemName: localPath.isEmpty ? "folder.badge.plus" : "folder.fill")
+                        .font(.title2)
+                        .foregroundStyle(localPath.isEmpty ? Color.secondary : Color.blue)
+                    VStack(alignment: .leading, spacing: 2) {
+                        if localPath.isEmpty {
+                            Text("Choose a folder…").foregroundStyle(.secondary)
+                        } else {
+                            Text(URL(fileURLWithPath: localPath).lastPathComponent).fontWeight(.medium)
+                            Text(localPath.replacingOccurrences(of: NSHomeDirectory(), with: "~"))
+                                .font(.caption).foregroundStyle(.secondary)
+                                .lineLimit(1).truncationMode(.middle)
+                        }
+                    }
+                    Spacer()
+                    if !localPath.isEmpty {
+                        Text("Change").font(.caption).foregroundStyle(.blue)
+                    }
+                }
+                .padding(12)
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .background(Color.primary.opacity(0.05))
+                .clipShape(RoundedRectangle(cornerRadius: 8))
+                .contentShape(Rectangle())
+            }
+            .buttonStyle(.plain)
+        }
+    }
+
+    @ViewBuilder
+    private var driveField: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            Text(direction == .upload ? "Google Drive destination" : "Google Drive source")
+                .font(.subheadline.bold())
+
+            if direction == .download {
+                Button { showingDrivePicker = true } label: {
+                    HStack(spacing: 10) {
+                        GoogleDriveIcon(size: 22)
+                            .opacity(driveDest.isEmpty ? 0.55 : 1.0)
+                        VStack(alignment: .leading, spacing: 2) {
+                            if driveDest.isEmpty {
+                                Text("Choose a Drive folder…").foregroundStyle(.secondary)
+                            } else {
+                                Text(driveDest.split(separator: "/").last.map(String.init) ?? driveDest)
+                                    .fontWeight(.medium)
+                                Text("gdrive:\(driveDest)")
+                                    .font(.caption).foregroundStyle(.secondary)
+                                    .lineLimit(1).truncationMode(.middle)
+                            }
+                        }
+                        Spacer()
+                        if !driveDest.isEmpty {
+                            Text("Change").font(.caption).foregroundStyle(.blue)
+                        }
+                    }
+                    .padding(12)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .background(Color.primary.opacity(0.05))
+                    .clipShape(RoundedRectangle(cornerRadius: 8))
+                    .contentShape(Rectangle())
+                }
+                .buttonStyle(.plain)
+            } else {
+                HStack(spacing: 0) {
+                    Text("gdrive:")
+                        .foregroundStyle(.secondary).font(.callout.monospaced())
+                        .padding(.leading, 10).padding(.trailing, 4)
+                    TextField(L.Settings.drivePlaceholder, text: $driveDest)
+                        .focused($driveFieldFocused).padding(.trailing, 10)
+                }
+                .padding(.vertical, 8)
+                .background(Color.primary.opacity(0.05))
+                .clipShape(RoundedRectangle(cornerRadius: 8))
+                .overlay(RoundedRectangle(cornerRadius: 8).stroke(Color.primary.opacity(0.12)))
+            }
+        }
+    }
+
+    @ViewBuilder
+    private var excludePatternsSection: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            let allPresets = ExcludePreset.allCases.map(\.rawValue)
+            let allOn = allPresets.allSatisfy { excludePatterns.contains($0) }
+            HStack {
+                Text("Exclude from sync").font(.subheadline.bold())
+                Spacer()
+                HStack(spacing: 6) {
+                    Text(allOn ? "Deselect all" : "Select all").font(.caption)
+                    Toggle("", isOn: Binding(
+                        get: { allOn },
+                        set: { on in
+                            if on { for p in allPresets where !excludePatterns.contains(p) { excludePatterns.append(p) } }
+                            else  { excludePatterns.removeAll { allPresets.contains($0) } }
+                        }
+                    )).labelsHidden().toggleStyle(.checkbox)
+                }
+                .padding(.trailing, 12)
+            }
+            let custom = excludePatterns.filter { p in !ExcludePreset.allCases.map(\.rawValue).contains(p) }
+            VStack(spacing: 0) {
+                ForEach(ExcludePreset.allCases) { preset in
+                    let isOn = excludePatterns.contains(preset.rawValue)
+                    HStack(spacing: 10) {
+                        Image(systemName: preset.icon).foregroundStyle(.secondary).frame(width: 20)
+                        Text(preset.label)
+                        Spacer()
+                        Toggle("", isOn: Binding(
+                            get: { isOn },
+                            set: { on in
+                                if on { excludePatterns.append(preset.rawValue) }
+                                else  { excludePatterns.removeAll { $0 == preset.rawValue } }
+                            }
+                        )).labelsHidden()
+                    }
+                    .padding(.horizontal, 12).padding(.vertical, 8)
+                    Divider().padding(.leading, 42)
+                }
+                ForEach(custom, id: \.self) { p in
+                    HStack(spacing: 10) {
+                        Image(systemName: "line.3.horizontal.decrease")
+                            .foregroundStyle(.secondary).frame(width: 20)
+                        Text(p).font(.system(.body, design: .monospaced))
+                        Spacer()
+                        Button { excludePatterns.removeAll { $0 == p } } label: {
+                            Image(systemName: "trash").font(.callout).foregroundStyle(.red.opacity(0.7))
+                        }.buttonStyle(.plain)
+                    }
+                    .padding(.horizontal, 12).padding(.vertical, 8)
+                    Divider().padding(.leading, 42)
+                }
+            }
+            .background(Color.primary.opacity(0.05))
+            .clipShape(RoundedRectangle(cornerRadius: 8))
+
+            VStack(alignment: .leading, spacing: 4) {
+                HStack {
+                    TextField("Custom pattern, e.g. *.log", text: $customPattern)
+                        .textFieldStyle(.roundedBorder)
+                        .onChange(of: customPattern) { _ in customPatternDuplicate = false }
+                        .onSubmit {
+                            let p = customPattern.trimmingCharacters(in: .whitespaces)
+                            guard !p.isEmpty else { return }
+                            if excludePatterns.contains(p) { customPatternDuplicate = true }
+                            else { excludePatterns.append(p); customPattern = ""; customPatternDuplicate = false }
+                        }
+                    Button("Add") {
+                        let p = customPattern.trimmingCharacters(in: .whitespaces)
+                        guard !p.isEmpty else { return }
+                        if excludePatterns.contains(p) { customPatternDuplicate = true }
+                        else { excludePatterns.append(p); customPattern = ""; customPatternDuplicate = false }
+                    }
+                    .disabled(customPattern.trimmingCharacters(in: .whitespaces).isEmpty)
+                }
+                if customPatternDuplicate {
+                    Text("Already in the list").font(.caption).foregroundStyle(.red)
                 }
             }
         }
+    }
+}
+
+// MARK: - Drive folder picker
+
+struct DriveFolderPicker: View {
+    let onSelect: (String) -> Void
+    @Environment(\.dismiss) private var dismiss
+
+    @State private var pathStack: [String] = [""]
+    @State private var items: [RcloneRC.DriveItem] = []
+    @State private var isLoading = false
+    @State private var loadError: String?
+
+    private var currentPath: String { pathStack.last ?? "" }
+    private var currentLabel: String {
+        currentPath.isEmpty ? "My Drive" : (currentPath.split(separator: "/").last.map(String.init) ?? currentPath)
+    }
+    private var parentLabel: String {
+        guard pathStack.count >= 2 else { return "My Drive" }
+        let parent = pathStack[pathStack.count - 2]
+        return parent.isEmpty ? "My Drive" : (parent.split(separator: "/").last.map(String.init) ?? parent)
+    }
+
+    var body: some View {
+        VStack(spacing: 0) {
+            // Header — navigation title with back or close
+            ZStack {
+                Text(currentLabel)
+                    .font(.headline)
+                    .lineLimit(1).truncationMode(.middle)
+                    .frame(maxWidth: .infinity)
+
+                HStack {
+                    if pathStack.count > 1 {
+                        Button {
+                            pathStack.removeLast()
+                            Task { await load() }
+                        } label: {
+                            HStack(spacing: 3) {
+                                Image(systemName: "chevron.left").font(.caption.bold())
+                                Text(parentLabel).lineLimit(1)
+                            }
+                            .font(.callout)
+                        }
+                        .buttonStyle(.plain).foregroundStyle(.blue)
+                    } else {
+                        Button { dismiss() } label: {
+                            Image(systemName: "xmark.circle.fill")
+                                .foregroundStyle(.secondary).font(.title3)
+                        }
+                        .buttonStyle(.plain)
+                    }
+                    Spacer()
+                }
+            }
+            .padding(.horizontal, 16)
+            .padding(.vertical, 14)
+
+            Divider()
+
+            // Folder list
+            Group {
+                if isLoading {
+                    VStack(spacing: 10) {
+                        ProgressView()
+                        Text("Loading…").font(.caption).foregroundStyle(.secondary)
+                    }
+                    .frame(maxWidth: .infinity, maxHeight: .infinity)
+                } else if let err = loadError {
+                    VStack(spacing: 10) {
+                        Image(systemName: "exclamationmark.triangle").font(.largeTitle).foregroundStyle(.orange)
+                        Text(err).foregroundStyle(.secondary).multilineTextAlignment(.center)
+                        Button("Retry") { Task { await load() } }.buttonStyle(.bordered)
+                    }
+                    .padding()
+                    .frame(maxWidth: .infinity, maxHeight: .infinity)
+                } else if items.isEmpty {
+                    VStack(spacing: 8) {
+                        Image(systemName: "folder").font(.largeTitle).foregroundStyle(.tertiary)
+                        Text("No subfolders here").foregroundStyle(.secondary)
+                    }
+                    .frame(maxWidth: .infinity, maxHeight: .infinity)
+                } else {
+                    ScrollView {
+                        LazyVStack(spacing: 0) {
+                            ForEach(items) { item in
+                                Button {
+                                    pathStack.append(item.path)
+                                    Task { await load() }
+                                } label: {
+                                    HStack(spacing: 12) {
+                                        Image(systemName: "folder.fill").foregroundStyle(.blue)
+                                        Text(item.name).foregroundStyle(.primary).lineLimit(1)
+                                        Spacer()
+                                        Image(systemName: "chevron.right").foregroundStyle(.tertiary).font(.caption)
+                                    }
+                                    .padding(.horizontal, 16).padding(.vertical, 10)
+                                    .contentShape(Rectangle())
+                                }
+                                .buttonStyle(.plain)
+                                Divider().padding(.leading, 44)
+                            }
+                        }
+                    }
+                }
+            }
+
+            Divider()
+
+            // Select button
+            HStack {
+                Button("Cancel") { dismiss() }
+                    .keyboardShortcut(.escape)
+                Spacer()
+                Button {
+                    onSelect(currentPath)
+                    dismiss()
+                } label: {
+                    Label("Select \"\(currentLabel)\"", systemImage: "checkmark.circle.fill")
+                }
+                .buttonStyle(.borderedProminent)
+                .keyboardShortcut(.return)
+            }
+            .padding(.horizontal, 16)
+            .padding(.vertical, 12)
+        }
+        .frame(width: 400, height: 500)
+        .task { await load() }
+    }
+
+    private func load() async {
+        isLoading = true
+        loadError = nil
+        do {
+            items = try await RcloneRC.listDriveFolders(remote: currentPath)
+        } catch {
+            loadError = "Could not load Drive folders.\nMake sure the app is connected to Google Drive."
+        }
+        isLoading = false
     }
 }
 
@@ -1217,7 +1467,7 @@ struct BandwidthEditor: View {
                     .buttonStyle(.bordered)
             }
             .padding(.horizontal, 14)
-            .padding(.vertical, 10)
+            .padding(.vertical, 12)
         }
         .onAppear { parse(configStore.config.bwlimit) }
     }
@@ -1324,32 +1574,90 @@ struct BandwidthEditor: View {
     }
 }
 
+// MARK: - Direction picker
+
+struct DirectionPicker: View {
+    @Binding var direction: SyncDirection
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            Text("Direction").font(.subheadline.bold())
+            HStack(spacing: 0) {
+                directionButton(for: .upload,   label: "Mac → Drive", rounded: .leading)
+                Divider().frame(width: 1)
+                directionButton(for: .download, label: "Drive → Mac", rounded: .trailing)
+            }
+            .fixedSize(horizontal: false, vertical: true)
+            .background(Color.primary.opacity(0.05))
+            .clipShape(RoundedRectangle(cornerRadius: 8))
+            .overlay(RoundedRectangle(cornerRadius: 8).stroke(Color.primary.opacity(0.12)))
+        }
+    }
+
+    private func directionButton(for d: SyncDirection, label: String, rounded: HorizontalEdge) -> some View {
+        let selected = direction == d
+        return Button { direction = d } label: {
+            Text(label)
+                .font(.subheadline)
+                .fontWeight(selected ? .semibold : .regular)
+                .foregroundStyle(selected ? Color.accentColor : Color.primary)
+                .frame(maxWidth: .infinity)
+                .padding(.vertical, 9)
+                .background(selected ? Color.accentColor.opacity(0.12) : Color.clear)
+                .contentShape(Rectangle())
+        }
+        .buttonStyle(.plain)
+    }
+}
+
 // MARK: - Sync type picker
 
 struct SyncTypePicker: View {
     @Binding var copyMode: Bool
+    var direction: SyncDirection = .upload
 
     var body: some View {
         VStack(alignment: .leading, spacing: 8) {
             Text("Sync type").font(.subheadline.bold())
-            VStack(spacing: 0) {
-                option(
-                    selected: !copyMode,
-                    icon: "arrow.triangle.2.circlepath",
-                    title: "Sync",
-                    description: "Drive mirrors your local folder. Files you delete locally are also deleted from Drive."
-                ) { copyMode = false }
-                Divider().padding(.leading, 44)
-                option(
-                    selected: copyMode,
-                    icon: "doc.on.doc",
-                    title: "Copy — keep all Drive files",
-                    description: "Files are only added to Drive, never deleted. Files you remove locally stay in Drive."
-                ) { copyMode = true }
+            if direction == .download {
+                downloadOnlyView
+            } else {
+                uploadPicker
             }
-            .background(Color.primary.opacity(0.05))
-            .clipShape(RoundedRectangle(cornerRadius: 8))
         }
+    }
+
+    private var downloadOnlyView: some View {
+        option(
+            selected: true,
+            icon: "doc.on.doc",
+            title: "Copy — keep all local files",
+            description: "Files are only downloaded, never deleted locally. Files removed from Drive stay on your Mac.",
+            action: {}
+        )
+        .background(Color.primary.opacity(0.05))
+        .clipShape(RoundedRectangle(cornerRadius: 8))
+        .onAppear { copyMode = true }
+    }
+
+    private var uploadPicker: some View {
+        VStack(spacing: 0) {
+            option(
+                selected: !copyMode,
+                icon: "arrow.triangle.2.circlepath",
+                title: "Sync",
+                description: "Drive mirrors your local folder. Files you delete locally are also deleted from Drive."
+            ) { copyMode = false }
+            Divider().padding(.leading, 44)
+            option(
+                selected: copyMode,
+                icon: "doc.on.doc",
+                title: "Copy — keep all Drive files",
+                description: "Files are only added to Drive, never deleted. Files you remove locally stay in Drive."
+            ) { copyMode = true }
+        }
+        .background(Color.primary.opacity(0.05))
+        .clipShape(RoundedRectangle(cornerRadius: 8))
     }
 
     private func option(selected: Bool, icon: String, title: String, description: String, action: @escaping () -> Void) -> some View {
@@ -1369,6 +1677,102 @@ struct SyncTypePicker: View {
             .contentShape(Rectangle())
         }
         .buttonStyle(.plain)
+    }
+}
+
+// MARK: - Delete confirmation sheet
+
+struct DeleteConfirmationSheet: View {
+    let pending: PendingDeletion
+    @EnvironmentObject var store: StatusStore
+    @Environment(\.dismiss) private var dismiss
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 0) {
+            HStack(alignment: .top) {
+                VStack(alignment: .leading, spacing: 4) {
+                    Text("\(pending.filesToDelete.count) file\(pending.filesToDelete.count == 1 ? "" : "s") will be deleted from Drive")
+                        .font(.headline)
+                    Text(pending.definition.driveDisplayPath)
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                }
+                Spacer()
+                Button { store.cancelPendingDeletion() } label: {
+                    Image(systemName: "xmark.circle.fill")
+                        .foregroundStyle(.secondary).font(.title3)
+                }
+                .buttonStyle(.plain)
+            }
+            .padding(20)
+
+            Divider()
+
+            ScrollView {
+                LazyVStack(alignment: .leading, spacing: 0) {
+                    ForEach(pending.filesToDelete, id: \.self) { path in
+                        HStack(spacing: 10) {
+                            Image(systemName: "doc")
+                                .foregroundStyle(.secondary)
+                                .frame(width: 16)
+                            Text(path)
+                                .font(.callout)
+                                .lineLimit(1)
+                                .truncationMode(.middle)
+                        }
+                        .padding(.horizontal, 20)
+                        .padding(.vertical, 5)
+                        if path != pending.filesToDelete.last {
+                            Divider().padding(.leading, 46)
+                        }
+                    }
+                }
+                .padding(.vertical, 8)
+            }
+            .frame(maxHeight: 240)
+
+            Divider()
+
+            HStack {
+                Button("Cancel") { store.cancelPendingDeletion() }
+                Spacer()
+                Button("Switch to Copy") { store.switchToCopyAndSync() }
+                Button("Delete and Sync") { store.confirmDeleteAndSync() }
+                    .foregroundStyle(.red)
+            }
+            .padding(20)
+        }
+        .frame(width: 420)
+    }
+}
+
+// MARK: - Google Drive brand icon (3-color triangle)
+
+private struct GoogleDriveIcon: View {
+    var size: CGFloat = 22
+
+    var body: some View {
+        Canvas { ctx, sz in
+            let w = sz.width, h = sz.height
+            let top      = CGPoint(x: w / 2, y: 0)
+            let botLeft  = CGPoint(x: 0,     y: h)
+            let botRight = CGPoint(x: w,     y: h)
+            let centroid = CGPoint(x: w / 2, y: h * 2 / 3)
+
+            func tri(_ a: CGPoint, _ b: CGPoint, _ c: CGPoint) -> Path {
+                var p = Path()
+                p.move(to: a); p.addLine(to: b); p.addLine(to: c)
+                p.closeSubpath(); return p
+            }
+
+            ctx.fill(tri(top, botLeft, centroid),
+                     with: .color(Color(red: 0.00, green: 0.67, blue: 0.28))) // #00AC47 green
+            ctx.fill(tri(top, botRight, centroid),
+                     with: .color(Color(red: 0.15, green: 0.52, blue: 0.99))) // #2684FC blue
+            ctx.fill(tri(botLeft, botRight, centroid),
+                     with: .color(Color(red: 1.00, green: 0.73, blue: 0.00))) // #FFBA00 yellow
+        }
+        .frame(width: size, height: size)
     }
 }
 

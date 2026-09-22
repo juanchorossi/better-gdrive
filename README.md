@@ -49,6 +49,8 @@ The official app is a black box. It syncs everything or nothing.
 | Real pause & resume | ✗ | ✓ |
 | Bandwidth throttle (time-of-day schedule) | ✗ | ✓ |
 | Sync vs Copy mode, per folder | ✗ | ✓ |
+| Download direction: Drive → local per folder | ✗ | ✓ |
+| Confirm before deleting files from Drive | ✗ | ✓ |
 | Live upload activity feed | ✗ | ✓ |
 | Auto-sync when local files change (FSEvents) | ✗ | ✓ |
 | Multiple independent sync jobs | ✓ | ✓ |
@@ -56,6 +58,16 @@ The official app is a black box. It syncs everything or nothing.
 | Token reconnect without leaving the app | ✗ | ✓ |
 
 Powered by **[rclone](https://rclone.org)** — the battle-tested, open-source cloud sync engine.
+
+---
+
+## Download direction
+
+Each folder can be configured as **upload** (local → Drive, the default) or **download** (Drive → local). Download jobs use Copy mode by default — they never delete files from your Mac.
+
+## Delete confirmation
+
+When a sync-mode upload job would delete files from Drive, Better GDrive runs a dry-run first and shows you exactly which files are affected before proceeding. You can confirm the deletion, switch the job to Copy mode on the spot, or cancel.
 
 ---
 
