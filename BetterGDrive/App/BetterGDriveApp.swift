@@ -2,11 +2,8 @@ import SwiftUI
 
 class AppDelegate: NSObject, NSApplicationDelegate {
     func applicationDidFinishLaunching(_ notification: Notification) {
-        // Close any windows auto-restored from the previous session so the app
-        // starts as a pure menu-bar app (not visible in Command+Tab or Dock).
-        NSApp.windows
-            .filter { !($0 is NSPanel) }
-            .forEach { $0.close() }
+        // Ensure we start as menu-bar-only (guard against any state restoration
+        // that may have bumped the policy to .regular before this fires).
         NSApp.setActivationPolicy(.accessory)
     }
 }
