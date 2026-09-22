@@ -1,7 +1,19 @@
 import SwiftUI
 
+class AppDelegate: NSObject, NSApplicationDelegate {
+    func applicationDidFinishLaunching(_ notification: Notification) {
+        // Close any windows auto-restored from the previous session so the app
+        // starts as a pure menu-bar app (not visible in Command+Tab or Dock).
+        NSApp.windows
+            .filter { !($0 is NSPanel) }
+            .forEach { $0.close() }
+        NSApp.setActivationPolicy(.accessory)
+    }
+}
+
 @main
 struct BetterGDriveApp: App {
+    @NSApplicationDelegateAdaptor(AppDelegate.self) var appDelegate
     @StateObject private var store = StatusStore()
     @Environment(\.openWindow) private var openWindow
 
@@ -30,9 +42,6 @@ struct BetterGDriveApp: App {
         Window(L.General.appName, id: "main") {
             MainWindowView()
                 .environmentObject(store)
-                .onAppear {
-                    NSApp.setActivationPolicy(.regular)
-                }
                 .onDisappear {
                     if NSApp.windows.filter({ !($0 is NSPanel) && $0.isVisible }).isEmpty {
                         NSApp.setActivationPolicy(.accessory)
