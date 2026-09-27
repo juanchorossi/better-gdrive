@@ -157,8 +157,47 @@ struct MenuBarView: View {
 
     // MARK: - Status tab
 
+    private var hasTokenError: Bool {
+        store.jobs.contains { $0.status == .tokenError }
+    }
+
+    private var tokenErrorBanner: some View {
+        VStack(spacing: 12) {
+            HStack(spacing: 10) {
+                Image(systemName: "exclamationmark.shield.fill")
+                    .font(.system(size: 22))
+                    .foregroundStyle(.red)
+                VStack(alignment: .leading, spacing: 2) {
+                    Text("Google account disconnected")
+                        .fontWeight(.semibold)
+                    Text("Your session token has expired.")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                }
+                Spacer()
+            }
+
+            Button {
+                openMainWindow()
+            } label: {
+                Label("Reconnect Google Account", systemImage: "arrow.triangle.2.circlepath")
+                    .frame(maxWidth: .infinity)
+                    .padding(.vertical, 6)
+            }
+            .buttonStyle(.borderedProminent)
+            .tint(.red)
+            .controlSize(.regular)
+        }
+        .padding(14)
+        .background(Color.red.opacity(0.08))
+    }
+
     private var statusContent: some View {
         VStack(spacing: 0) {
+            if hasTokenError {
+                tokenErrorBanner
+                Divider()
+            }
             ForEach(store.jobs) { job in
                 JobRow(job: job, store: store)
                 if job.id != store.jobs.last?.id {
@@ -340,12 +379,6 @@ struct JobRow: View {
 
 struct ActivityRow: View {
     let item: ActivityItem
-    @EnvironmentObject var store: StatusStore
-
-    private var hasKnownDrivePath: Bool {
-        item.drivePath != nil
-            || store.jobDefinitions.contains(where: { $0.name == item.jobName })
-    }
 
     var body: some View {
         HStack(spacing: 10) {
@@ -383,32 +416,12 @@ struct ActivityRow: View {
 
             Spacer()
 
-            Group {
-                if hasKnownDrivePath {
-                    Button {
-                        let query = item.fileName.addingPercentEncoding(withAllowedCharacters: .urlQueryAllowed) ?? item.fileName
-                        if let url = URL(string: "https://drive.google.com/drive/search?q=\(query)") {
-                            NSWorkspace.shared.open(url)
-                        }
-                    } label: {
-                        HStack(spacing: 4) {
-                            Text(item.operation.description)
-                            Image(systemName: item.operation.icon)
-                            Image(systemName: "arrow.up.right").font(.caption2)
-                        }
-                        .font(.caption)
-                        .foregroundStyle(Color.accentColor)
-                    }
-                    .buttonStyle(.plain)
-                } else {
-                    HStack(spacing: 4) {
-                        Text(item.operation.description)
-                        Image(systemName: item.operation.icon)
-                    }
-                    .font(.caption)
-                    .foregroundStyle(item.operation.color)
-                }
+            HStack(spacing: 4) {
+                Text(item.operation.description)
+                Image(systemName: item.operation.icon)
             }
+            .font(.caption)
+            .foregroundStyle(item.operation.color)
         }
         .padding(.horizontal, 14)
         .padding(.vertical, 7)
