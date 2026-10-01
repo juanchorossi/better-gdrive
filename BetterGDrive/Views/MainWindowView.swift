@@ -138,6 +138,21 @@ struct MainStatusView: View {
                 }
             }
             Spacer()
+            if store.hasTokenError {
+                Button { section = .settings } label: {
+                    HStack(spacing: 4) {
+                        Text("Reconnect")
+                        Image(systemName: "arrow.right")
+                    }
+                    .font(.caption.bold())
+                    .foregroundStyle(.red)
+                    .padding(.horizontal, 10)
+                    .padding(.vertical, 5)
+                    .background(Color.red.opacity(0.1))
+                    .clipShape(RoundedRectangle(cornerRadius: 6))
+                }
+                .buttonStyle(.plain)
+            }
         }
         .padding(.horizontal, 20)
         .padding(.vertical, 14)
@@ -145,33 +160,38 @@ struct MainStatusView: View {
     }
 
     private var bannerIcon: String {
-        if store.jobs.contains(where: { $0.isRunning })             { return "arrow.triangle.2.circlepath" }
-        if store.jobs.contains(where: { $0.status == .tokenError }) { return "exclamationmark.shield.fill" }
+        if store.hasTokenError                                       { return "exclamationmark.shield.fill" }
         if store.jobs.contains(where: { $0.status == .error })      { return "exclamationmark.triangle.fill" }
         if store.jobs.contains(where: { $0.status == .paused })     { return "pause.circle.fill" }
         return "checkmark.icloud.fill"
     }
     private var bannerColor: Color {
-        if store.jobs.contains(where: { $0.isRunning })             { return .blue }
-        if store.jobs.contains(where: { $0.status == .tokenError }) { return .red }
-        if store.jobs.contains(where: { $0.status == .error })      { return .orange }
-        if store.jobs.contains(where: { $0.status == .paused })     { return .blue }
+        if store.isAnySyncRunning && store.hasTokenError            { return .orange }
+        if store.isAnySyncRunning                                   { return .blue }
+        if store.hasTokenError                                      { return .red }
+        if store.jobs.contains(where: { $0.status == .error })     { return .orange }
+        if store.jobs.contains(where: { $0.status == .paused })    { return .blue }
         return .green
     }
     private var bannerTitle: String {
-        if store.jobs.contains(where: { $0.isRunning })             { return L.Status.syncing }
-        if store.jobs.contains(where: { $0.status == .tokenError }) { return L.Status.tokenExpired }
-        if store.jobs.contains(where: { $0.status == .error })      { return L.Status.syncError }
-        if store.jobs.contains(where: { $0.status == .paused })     { return "Paused" }
+        if store.isAnySyncRunning && store.hasTokenError            { return "Syncing · Action needed" }
+        if store.isAnySyncRunning                                   { return L.Status.syncing }
+        if store.hasTokenError                                      { return "Action needed" }
+        if store.jobs.contains(where: { $0.status == .error })     { return L.Status.syncError }
+        if store.jobs.contains(where: { $0.status == .paused })    { return "Paused" }
         return L.Status.upToDate
     }
     private var bannerSubtitle: String {
-        if store.jobs.contains(where: { $0.isRunning })             { return L.Status.syncingDetail }
-        if store.jobs.contains(where: { $0.status == .tokenError }) { return "Token expired — reconnect in Settings" }
+        if store.isAnySyncRunning && store.hasTokenError {
+            let count = store.jobs.filter { $0.status == .tokenError }.count
+            return count == 1 ? "1 folder needs to reconnect to Google" : "\(count) folders need to reconnect to Google"
+        }
+        if store.isAnySyncRunning                                   { return L.Status.syncingDetail }
+        if store.hasTokenError                                      { return "One or more folders need to reconnect to Google" }
         if let errJob = store.jobs.first(where: { $0.status == .error }) {
             return errJob.errorMessage ?? L.Status.errorDetail
         }
-        if store.jobs.contains(where: { $0.status == .paused })     { return "Tap play to resume syncing" }
+        if store.jobs.contains(where: { $0.status == .paused })    { return "Tap play to resume syncing" }
         let oldest = store.jobs.compactMap(\.lastSync).min()
         return oldest.map { d in
             let s = -d.timeIntervalSinceNow

@@ -65,11 +65,12 @@ final class StatusStore: ObservableObject {
     var hasAnyPaused: Bool     { jobs.contains(where: { $0.status == .paused }) }
 
     var headerTitle: String {
-        if jobs.isEmpty      { return L.General.appName }
-        if isAnySyncRunning  { return L.Status.syncing }
-        if hasTokenError     { return L.Status.tokenExpired }
-        if hasError          { return L.Status.syncError }
-        if hasAnyPaused      { return "Paused" }
+        if jobs.isEmpty                      { return L.General.appName }
+        if isAnySyncRunning && hasTokenError { return "Syncing · Action needed" }
+        if isAnySyncRunning                  { return L.Status.syncing }
+        if hasTokenError                     { return L.Status.tokenExpired }
+        if hasError                          { return L.Status.syncError }
+        if hasAnyPaused                      { return "Paused" }
         if let oldest = jobs.compactMap(\.lastSync).min() {
             let diff = -oldest.timeIntervalSinceNow
             if diff < 60    { return "Synced just now" }
@@ -81,11 +82,12 @@ final class StatusStore: ObservableObject {
     }
 
     var headerColor: Color {
-        if jobs.isEmpty      { return .secondary }
-        if isAnySyncRunning  { return .blue }
-        if hasTokenError     { return .red }
-        if hasError          { return .orange }
-        if hasAnyPaused      { return .blue }
+        if jobs.isEmpty                      { return .secondary }
+        if isAnySyncRunning && hasTokenError { return .orange }
+        if isAnySyncRunning                  { return .blue }
+        if hasTokenError                     { return .red }
+        if hasError                          { return .orange }
+        if hasAnyPaused                      { return .blue }
         return .green
     }
 
@@ -260,10 +262,14 @@ final class StatusStore: ObservableObject {
         for def in defs {
             guard !jobs.contains(where: { $0.id == def.id && $0.isRunning }),
                   !jobs.contains(where: { $0.id == def.id && $0.status == .paused }) else { continue }
+            let jobStatus = jobs.first(where: { $0.id == def.id })?.status
             let lastSync = UserDefaults.standard.object(forKey: "lastSync.\(def.id)") as? Date
-            // Always start a job that has never synced; otherwise only if interval is set and overdue
+            // Transient errors (network, timeout) should always retry — don't leave jobs stuck forever.
+            // Token errors need user action so skip them here.
             let overdue: Bool
-            if let lastSync, let threshold {
+            if jobStatus == .error {
+                overdue = true
+            } else if let lastSync, let threshold {
                 overdue = -lastSync.timeIntervalSinceNow > threshold
             } else {
                 overdue = lastSync == nil  // never synced → always start

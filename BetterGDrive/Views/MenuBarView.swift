@@ -81,11 +81,14 @@ struct MenuBarView: View {
 
     private var header: some View {
         HStack {
-            if !store.isAnySyncRunning {
+            if store.isAnySyncRunning && store.hasTokenError {
+                SyncIconView(color: .orange, font: .body, isActive: true)
+            } else if !store.isAnySyncRunning {
                 Image(systemName: store.menuBarIcon).foregroundStyle(store.headerColor)
             }
             Text(store.headerTitle)
                 .font(.headline)
+                .foregroundStyle(store.isAnySyncRunning && store.hasTokenError ? Color.orange : Color.primary)
             Spacer()
             if !store.jobs.isEmpty {
                 Button {
@@ -315,7 +318,7 @@ struct JobRow: View {
                 }
             }
         } else if job.status == .tokenError {
-            Text("Token expired — reconnect in Settings")
+            Text("Token expired")
                 .font(.caption2).foregroundStyle(.red)
         } else if job.status == .error {
             Text(job.errorMessage ?? "Sync failed")
