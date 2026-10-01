@@ -3,7 +3,7 @@ set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 APP_NAME="Better GDrive"
-VERSION="1.0.0"
+VERSION="1.1.0"
 DMG_NAME="BetterGDrive-${VERSION}.dmg"
 STAGING="$SCRIPT_DIR/.dmg-staging"
 OUTPUT="$SCRIPT_DIR/$DMG_NAME"
