@@ -1,5 +1,6 @@
 import Foundation
 import Combine
+import Network
 import ServiceManagement
 import SwiftUI
 
@@ -25,6 +26,7 @@ final class StatusStore: ObservableObject {
     @Published var isLoadingAccount = true
     @Published var needsSetup: Bool
     @Published var pendingDeletion: PendingDeletion? = nil
+    @Published var isOnExpensiveNetwork: Bool = false
 
     let configStore = ConfigStore()
     var jobDefinitions: [JobDefinition] { configStore.config.jobs }
@@ -47,6 +49,7 @@ final class StatusStore: ObservableObject {
     private var seenTransferKeys: Set<String> = []
 
     // File watchers: one per job, started after daemon is ready
+    private var pathMonitor: NWPathMonitor?
     private var dryRunCheckingIds: Set<String> = []
     private var fileWatchers: [String: LocalFileWatcher] = [:]
     // Debounce tasks: cancelled and recreated on each FSEvent
@@ -63,6 +66,7 @@ final class StatusStore: ObservableObject {
     var hasError: Bool         { jobs.contains(where: { $0.status == .error }) }
     var hasTokenError: Bool    { jobs.contains(where: { $0.status == .tokenError }) }
     var hasAnyPaused: Bool     { jobs.contains(where: { $0.status == .paused }) }
+    var isHotspotPaused: Bool  { configStore.config.skipOnHotspot && isOnExpensiveNetwork && !isAnySyncRunning }
 
     var headerTitle: String {
         if jobs.isEmpty                      { return L.General.appName }
@@ -71,6 +75,7 @@ final class StatusStore: ObservableObject {
         if hasTokenError                     { return L.Status.tokenExpired }
         if hasError                          { return L.Status.syncError }
         if hasAnyPaused                      { return "Paused" }
+        if isHotspotPaused                   { return "Paused · Hotspot" }
         if let oldest = jobs.compactMap(\.lastSync).min() {
             let diff = -oldest.timeIntervalSinceNow
             if diff < 60    { return "Synced just now" }
@@ -88,6 +93,7 @@ final class StatusStore: ObservableObject {
         if hasTokenError                     { return .red }
         if hasError                          { return .orange }
         if hasAnyPaused                      { return .blue }
+        if isHotspotPaused                   { return .blue }
         return .green
     }
 
@@ -97,6 +103,7 @@ final class StatusStore: ObservableObject {
         if jobs.contains(where: { $0.status == .tokenError })       { return "exclamationmark.triangle.fill" }
         if jobs.contains(where: { $0.status == .error })            { return "exclamationmark.triangle" }
         if jobs.contains(where: { $0.status == .paused })           { return "pause.circle" }
+        if isHotspotPaused                                          { return "pause.circle" }
         return "cloud"
     }
 
@@ -219,6 +226,14 @@ final class StatusStore: ObservableObject {
             await MainActor.run { googleAccount = info; isLoadingAccount = false }
         }
 
+        let monitor = NWPathMonitor()
+        monitor.pathUpdateHandler = { [weak self] path in
+            let expensive = path.isExpensive
+            Task { @MainActor [weak self] in self?.isOnExpensiveNetwork = expensive }
+        }
+        monitor.start(queue: DispatchQueue(label: "com.bettergdrive.network-monitor"))
+        pathMonitor = monitor
+
         timerCancellable = Timer.publish(every: 3, on: .main, in: .common)
             .autoconnect()
             .sink { [weak self] _ in
@@ -256,6 +271,7 @@ final class StatusStore: ObservableObject {
     @MainActor
     private func triggerAutoSyncIfDue() {
         guard !needsSetup else { return }
+        guard !isHotspotPaused else { return }
         let interval = configStore.config.syncIntervalMinutes
         let threshold = interval > 0 ? TimeInterval(interval * 60) : nil
         let defs = jobDefinitions
@@ -492,8 +508,9 @@ final class StatusStore: ObservableObject {
         guard let i = jobs.firstIndex(where: { $0.id == jobId }) else { return }
         jobs[i].hasLocalChanges = false
         let job = jobs[i]
-        // Don't auto-sync if paused or blocked on an auth/sync error
+        // Don't auto-sync if paused, blocked on an auth/sync error, or on an expensive network
         guard job.status != .paused, job.status != .tokenError, job.status != .error else { return }
+        guard !isHotspotPaused else { return }
         if job.isRunning {
             pendingSyncAfterRun.insert(jobId)
         } else {

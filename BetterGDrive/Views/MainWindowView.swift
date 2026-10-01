@@ -163,6 +163,7 @@ struct MainStatusView: View {
         if store.hasTokenError                                       { return "exclamationmark.shield.fill" }
         if store.jobs.contains(where: { $0.status == .error })      { return "exclamationmark.triangle.fill" }
         if store.jobs.contains(where: { $0.status == .paused })     { return "pause.circle.fill" }
+        if store.isHotspotPaused                                    { return "pause.circle.fill" }
         return "checkmark.icloud.fill"
     }
     private var bannerColor: Color {
@@ -171,6 +172,7 @@ struct MainStatusView: View {
         if store.hasTokenError                                      { return .red }
         if store.jobs.contains(where: { $0.status == .error })     { return .orange }
         if store.jobs.contains(where: { $0.status == .paused })    { return .blue }
+        if store.isHotspotPaused                                    { return .blue }
         return .green
     }
     private var bannerTitle: String {
@@ -179,6 +181,7 @@ struct MainStatusView: View {
         if store.hasTokenError                                      { return "Action needed" }
         if store.jobs.contains(where: { $0.status == .error })     { return L.Status.syncError }
         if store.jobs.contains(where: { $0.status == .paused })    { return "Paused" }
+        if store.isHotspotPaused                                    { return "Paused · Hotspot" }
         return L.Status.upToDate
     }
     private var bannerSubtitle: String {
@@ -192,6 +195,7 @@ struct MainStatusView: View {
             return errJob.errorMessage ?? L.Status.errorDetail
         }
         if store.jobs.contains(where: { $0.status == .paused })    { return "Tap play to resume syncing" }
+        if store.isHotspotPaused                                    { return "Automatic sync paused on metered connection" }
         let oldest = store.jobs.compactMap(\.lastSync).min()
         return oldest.map { d in
             let s = -d.timeIntervalSinceNow
@@ -756,6 +760,23 @@ struct MainSettingsView: View {
                     .pickerStyle(.menu)
                     .labelsHidden()
                     .frame(maxWidth: 110)
+                }
+                .padding(14)
+                Divider().padding(.leading, 52)
+                HStack(spacing: 12) {
+                    Image(systemName: "iphone.radiowaves.left.and.right")
+                        .font(.title2).foregroundStyle(.secondary)
+                    VStack(alignment: .leading, spacing: 2) {
+                        Text("Pause on Personal Hotspot")
+                        Text("Skips automatic sync when connected to iPhone hotspot or USB tethering.")
+                            .font(.caption).foregroundStyle(.secondary)
+                    }
+                    Spacer()
+                    Toggle("", isOn: Binding(
+                        get: { store.configStore.config.skipOnHotspot },
+                        set: { store.configStore.config.skipOnHotspot = $0; store.configStore.save() }
+                    ))
+                    .labelsHidden()
                 }
                 .padding(14)
             }

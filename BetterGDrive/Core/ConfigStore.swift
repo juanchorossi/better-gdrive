@@ -98,11 +98,13 @@ struct SyncConfig: Codable {
     var bwlimit: String
     var jobs: [JobDefinition]
     var syncIntervalMinutes: Int  // 0 = manual only
+    var skipOnHotspot: Bool       // pause auto-sync on expensive networks (Personal Hotspot)
 
-    init(bwlimit: String, jobs: [JobDefinition], syncIntervalMinutes: Int = 0) {
+    init(bwlimit: String, jobs: [JobDefinition], syncIntervalMinutes: Int = 0, skipOnHotspot: Bool = true) {
         self.bwlimit = bwlimit
         self.jobs = jobs
         self.syncIntervalMinutes = syncIntervalMinutes
+        self.skipOnHotspot = skipOnHotspot
     }
 
     init(from decoder: Decoder) throws {
@@ -110,6 +112,7 @@ struct SyncConfig: Codable {
         bwlimit             = try c.decode(String.self, forKey: .bwlimit)
         jobs                = try c.decode([JobDefinition].self, forKey: .jobs)
         syncIntervalMinutes = (try? c.decode(Int.self, forKey: .syncIntervalMinutes)) ?? 0
+        skipOnHotspot       = (try? c.decode(Bool.self, forKey: .skipOnHotspot)) ?? true
     }
 }
 
