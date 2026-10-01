@@ -714,7 +714,28 @@ struct MainSettingsView: View {
 
     private var bandwidthSection: some View {
         settingsSection(L.Settings.bandwidth) {
-            BandwidthEditor(configStore: store.configStore)
+            VStack(spacing: 0) {
+                BandwidthEditor(configStore: store.configStore)
+                Divider().padding(.leading, 14)
+                HStack(spacing: 10) {
+                    Image(systemName: "iphone.radiowaves.left.and.right")
+                        .foregroundStyle(.secondary)
+                        .frame(width: 20)
+                    VStack(alignment: .leading, spacing: 2) {
+                        Text("Pause on Personal Hotspot")
+                        Text("Skips automatic sync when connected to iPhone hotspot or USB tethering.")
+                            .font(.caption).foregroundStyle(.secondary)
+                    }
+                    Spacer()
+                    Toggle("", isOn: Binding(
+                        get: { store.configStore.config.skipOnHotspot },
+                        set: { store.configStore.config.skipOnHotspot = $0; store.configStore.save() }
+                    ))
+                    .labelsHidden()
+                }
+                .padding(.horizontal, 14)
+                .padding(.vertical, 12)
+            }
         }
     }
 
@@ -760,23 +781,6 @@ struct MainSettingsView: View {
                     .pickerStyle(.menu)
                     .labelsHidden()
                     .frame(maxWidth: 110)
-                }
-                .padding(14)
-                Divider().padding(.leading, 52)
-                HStack(spacing: 12) {
-                    Image(systemName: "iphone.radiowaves.left.and.right")
-                        .font(.title2).foregroundStyle(.secondary)
-                    VStack(alignment: .leading, spacing: 2) {
-                        Text("Pause on Personal Hotspot")
-                        Text("Skips automatic sync when connected to iPhone hotspot or USB tethering.")
-                            .font(.caption).foregroundStyle(.secondary)
-                    }
-                    Spacer()
-                    Toggle("", isOn: Binding(
-                        get: { store.configStore.config.skipOnHotspot },
-                        set: { store.configStore.config.skipOnHotspot = $0; store.configStore.save() }
-                    ))
-                    .labelsHidden()
                 }
                 .padding(14)
             }
