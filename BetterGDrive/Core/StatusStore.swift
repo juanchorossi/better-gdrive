@@ -650,13 +650,7 @@ final class StatusStore: ObservableObject {
         jobs[i].isFinishing  = false
         jobs[i].syncStarted  = nil
 
-        let errLow = status.error?.lowercased() ?? ""
-        let isToken = errLow.contains("invalid_grant") ||
-                      errLow.contains("oauth") ||
-                      errLow.contains("token has expired") ||
-                      errLow.contains("token expired") ||
-                      errLow.contains("autherror") ||
-                      errLow.contains("401 unauthorized")
+        let isToken = Self.isTokenError(status.error)
         // Treat nil success as failure — rclone omits the field on some network errors.
         let hasErr  = !(status.success == true)
         jobs[i].status       = isToken ? .tokenError : hasErr ? .error : .ok
@@ -722,11 +716,18 @@ final class StatusStore: ObservableObject {
 
     // MARK: - Formatting
 
+    private static func isTokenError(_ raw: String?) -> Bool {
+        guard let raw else { return false }
+        let low = raw.lowercased()
+        return low.contains("invalid_grant") ||
+               low.contains("token has expired") ||
+               low.contains("token expired") ||
+               low.contains("autherror")
+    }
+
     private func friendlyError(_ raw: String?) -> String {
         guard let raw, !raw.isEmpty else { return "Unknown error" }
-        if raw.contains("invalid_grant") || raw.contains("oauth") ||
-           raw.contains("token has expired") || raw.contains("token expired") ||
-           raw.contains("401 unauthorized") {
+        if Self.isTokenError(raw) {
             return "Token expired — reconnect in Settings"
         }
         if raw.contains("no space left") || raw.contains("quota") {
