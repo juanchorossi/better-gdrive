@@ -165,34 +165,22 @@ struct MenuBarView: View {
     }
 
     private var tokenErrorBanner: some View {
-        VStack(spacing: 12) {
-            HStack(spacing: 10) {
-                Image(systemName: "exclamationmark.shield.fill")
-                    .font(.system(size: 22))
-                    .foregroundStyle(.red)
-                VStack(alignment: .leading, spacing: 2) {
-                    Text("Google account disconnected")
-                        .fontWeight(.semibold)
-                    Text("Your session token has expired.")
-                        .font(.caption)
-                        .foregroundStyle(.secondary)
-                }
-                Spacer()
-            }
-
-            Button {
-                openMainWindow()
-            } label: {
-                Label("Reconnect Google Account", systemImage: "arrow.triangle.2.circlepath")
-                    .frame(maxWidth: .infinity)
-                    .padding(.vertical, 6)
-            }
-            .buttonStyle(.borderedProminent)
-            .tint(.red)
-            .controlSize(.regular)
+        HStack(spacing: 10) {
+            Image(systemName: "exclamationmark.shield.fill")
+                .foregroundStyle(.orange)
+                .font(.callout)
+            Text("Google sign-in expired")
+                .font(.caption)
+                .fontWeight(.medium)
+            Spacer()
+            Button("Reconnect") { openMainWindow() }
+                .buttonStyle(.plain)
+                .font(.caption.bold())
+                .foregroundStyle(Color.accentColor)
         }
-        .padding(14)
-        .background(Color.red.opacity(0.08))
+        .padding(.horizontal, 14)
+        .padding(.vertical, 10)
+        .background(Color.orange.opacity(0.07))
     }
 
     private var statusContent: some View {
@@ -318,8 +306,9 @@ struct JobRow: View {
                 }
             }
         } else if job.status == .tokenError {
-            Text("Token expired")
-                .font(.caption2).foregroundStyle(.red)
+            if let display = job.lastSyncDisplay {
+                Text(display).font(.caption2).foregroundStyle(.secondary)
+            }
         } else if job.status == .error {
             Text(job.errorMessage ?? "Sync failed")
                 .font(.caption2).foregroundStyle(.orange)

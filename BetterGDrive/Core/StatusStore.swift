@@ -91,7 +91,7 @@ final class StatusStore: ObservableObject {
         if jobs.isEmpty                      { return .secondary }
         if isAnySyncRunning && hasTokenError { return .orange }
         if isAnySyncRunning                  { return .blue }
-        if hasTokenError                     { return .red }
+        if hasTokenError                     { return .orange }
         if hasError                          { return .orange }
         if hasAnyPaused                      { return .blue }
         if isHotspotPaused                   { return .blue }
@@ -753,8 +753,7 @@ final class StatusStore: ObservableObject {
         return low.contains("invalid_grant") ||
                low.contains("token has expired") ||
                low.contains("token expired") ||
-               low.contains("autherror") ||
-               low == "rc error 401"
+               low.contains("autherror")
     }
 
     private func friendlyError(_ raw: String?) -> String {

@@ -301,8 +301,9 @@ struct MainJobRow: View {
                 }
             }
         } else if job.status == .tokenError {
-            Text("Token expired — reconnect in Settings")
-                .font(.caption).foregroundStyle(.red)
+            if let display = job.lastSyncDisplay {
+                Text(display).font(.caption).foregroundStyle(.secondary)
+            }
         } else if job.status == .error {
             Text(job.errorMessage ?? "Sync failed")
                 .font(.caption).foregroundStyle(.orange)
