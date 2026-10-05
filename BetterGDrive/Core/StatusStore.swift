@@ -81,7 +81,8 @@ final class StatusStore: ObservableObject {
             if diff < 60    { return "Synced just now" }
             if diff < 3600  { return "Synced \(Int(diff/60))m ago" }
             if diff < 86400 { return "Synced \(Int(diff/3600))h ago" }
-            return "Synced \(oldest.formatted(.dateTime.month(.abbreviated).day()))"
+            let days = Int(diff / 86400)
+            return days == 1 ? "Synced yesterday" : "Synced \(days) days ago"
         }
         return L.Status.upToDate
     }

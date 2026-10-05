@@ -202,7 +202,8 @@ struct MainStatusView: View {
             if s < 60    { return "Just synced" }
             if s < 3600  { return "Last sync \(Int(s/60))m ago" }
             if s < 86400 { return "Last sync \(Int(s/3600))h ago" }
-            return "Synced \(d.formatted(.dateTime.month(.abbreviated).day()))"
+            let days = Int(s / 86400)
+            return days == 1 ? "Last synced yesterday" : "Last synced \(days) days ago"
         } ?? L.Status.noHistory
     }
 }
@@ -306,15 +307,12 @@ struct MainJobRow: View {
             Text(job.errorMessage ?? "Sync failed")
                 .font(.caption).foregroundStyle(.orange)
                 .lineLimit(1).truncationMode(.tail)
-        } else if job.status == .unknown {
-            if let display = job.lastSyncDisplay {
-                Text(display).font(.caption).foregroundStyle(.secondary)
-            } else {
-                Text("Never synced").font(.caption).foregroundStyle(.tertiary)
-            }
         } else if let display = job.lastSyncDisplay {
             Text(display)
                 .font(.caption).foregroundStyle(.secondary)
+        } else {
+            Text("Never synced")
+                .font(.caption).foregroundStyle(.tertiary)
         }
     }
 

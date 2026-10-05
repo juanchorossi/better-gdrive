@@ -327,19 +327,15 @@ struct JobRow: View {
         } else if job.status == .paused {
             Text("Paused")
                 .font(.caption2).foregroundStyle(.blue)
-        } else if job.status == .unknown {
-            if let display = job.lastSyncDisplay {
-                Text(display).font(.caption2).foregroundStyle(.secondary)
-            } else {
-                Text("Never synced").font(.caption2).foregroundStyle(.tertiary)
-            }
         } else if job.hasLocalChanges {
             Text("Changes detected…")
                 .font(.caption2).foregroundStyle(.secondary)
-        } else if let date = job.lastSync, -date.timeIntervalSinceNow < 86400,
-                  let display = job.lastSyncDisplay {
+        } else if let display = job.lastSyncDisplay {
             Text(display)
                 .font(.caption2).foregroundStyle(.secondary)
+        } else {
+            Text("Never synced")
+                .font(.caption2).foregroundStyle(.tertiary)
         }
     }
 
@@ -348,12 +344,10 @@ struct JobRow: View {
         if job.isRunning {
             SyncIconView(isActive: true)
                 .frame(width: 16)
-        } else if job.status != .unknown {
+        } else {
             Image(systemName: job.status.sfSymbol)
                 .foregroundStyle(job.status.color)
                 .frame(width: 16)
-        } else {
-            Color.clear.frame(width: 16)
         }
     }
 

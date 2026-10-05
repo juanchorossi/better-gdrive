@@ -26,24 +26,14 @@ struct SyncJob: Identifiable {
     var hasLocalChanges: Bool = false  // true during FSEvents debounce window
     var direction: SyncDirection = .upload
 
-    // Returns a display string that already includes the right suffix.
     var lastSyncDisplay: String? {
         guard let date = lastSync else { return nil }
         let diff = -date.timeIntervalSinceNow
         if diff < 60    { return "just now" }
         if diff < 3600  { return "\(Int(diff / 60))m ago" }
         if diff < 86400 { return "\(Int(diff / 3600))h ago" }
-        return date.formatted(.dateTime.month(.abbreviated).day())
-    }
-
-    // Legacy: used by menuBarSuffix (short form without "ago")
-    var relativeTime: String? {
-        guard let date = lastSync else { return nil }
-        let diff = -date.timeIntervalSinceNow
-        if diff < 60    { return "now" }
-        if diff < 3600  { return "\(Int(diff / 60))m" }
-        if diff < 86400 { return "\(Int(diff / 3600))h" }
-        return "\(Int(diff / 86400))d"
+        let days = Int(diff / 86400)
+        return days == 1 ? "yesterday" : "\(days) days ago"
     }
 }
 
