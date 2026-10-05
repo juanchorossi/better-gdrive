@@ -10,6 +10,11 @@ struct GoogleUserInfo {
     let pictureURL: URL?
 }
 
+struct AppUpdate {
+    let version: String
+    let releaseURL: URL
+}
+
 struct PendingDeletion: Identifiable {
     let id = UUID()
     let job: SyncJob
@@ -27,6 +32,7 @@ final class StatusStore: ObservableObject {
     @Published var needsSetup: Bool
     @Published var pendingDeletion: PendingDeletion? = nil
     @Published var isOnExpensiveNetwork: Bool = false
+    @Published var availableUpdate: AppUpdate? = nil
 
     let configStore = ConfigStore()
     var jobDefinitions: [JobDefinition] { configStore.config.jobs }
@@ -225,6 +231,12 @@ final class StatusStore: ObservableObject {
             }
             let info = try? await RcloneRC.fetchGoogleUserInfo()
             await MainActor.run { googleAccount = info; isLoadingAccount = false }
+        }
+
+        Task {
+            if let update = await fetchLatestRelease() {
+                await MainActor.run { self.availableUpdate = update }
+            }
         }
 
         let monitor = NWPathMonitor()
@@ -799,5 +811,35 @@ final class StatusStore: ObservableObject {
         if secs < 60   { return "\(secs)s" }
         if secs < 3600 { return "\(secs/60)m\(secs%60)s" }
         return "\(secs/3600)h\((secs%3600)/60)m"
+    }
+
+    // MARK: - Update checking
+
+    private func fetchLatestRelease() async -> AppUpdate? {
+        guard let url = URL(string: "https://api.github.com/repos/juanchorossi/better-gdrive/releases/latest") else { return nil }
+        var req = URLRequest(url: url)
+        req.setValue("application/vnd.github.v3+json", forHTTPHeaderField: "Accept")
+        req.timeoutInterval = 10
+        guard let (data, resp) = try? await URLSession.shared.data(for: req),
+              (resp as? HTTPURLResponse)?.statusCode == 200,
+              let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
+              let tag = json["tag_name"] as? String,
+              let urlStr = json["html_url"] as? String,
+              let releaseURL = URL(string: urlStr) else { return nil }
+        let remote = tag.hasPrefix("v") ? String(tag.dropFirst()) : tag
+        let current = Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String ?? "0"
+        guard isNewerVersion(remote, than: current) else { return nil }
+        return AppUpdate(version: remote, releaseURL: releaseURL)
+    }
+
+    private func isNewerVersion(_ remote: String, than local: String) -> Bool {
+        let r = remote.split(separator: ".").compactMap { Int($0) }
+        let l = local.split(separator: ".").compactMap { Int($0) }
+        for i in 0..<max(r.count, l.count) {
+            let rv = i < r.count ? r[i] : 0
+            let lv = i < l.count ? l[i] : 0
+            if rv != lv { return rv > lv }
+        }
+        return false
     }
 }

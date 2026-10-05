@@ -148,6 +148,21 @@ struct MenuBarView: View {
             Text(L.General.appName)
                 .font(.caption)
                 .foregroundStyle(.tertiary)
+            if let update = store.availableUpdate {
+                Text("·").font(.caption).foregroundStyle(.quaternary)
+                Button {
+                    NSWorkspace.shared.open(update.releaseURL)
+                } label: {
+                    HStack(spacing: 3) {
+                        Image(systemName: "arrow.up.circle.fill")
+                        Text("v\(update.version) available")
+                    }
+                    .font(.caption)
+                    .foregroundStyle(.blue)
+                }
+                .buttonStyle(.plain)
+                .help("Open release page to download")
+            }
             Spacer()
             Button("Quit") { NSApp.terminate(nil) }
                 .buttonStyle(.plain)
