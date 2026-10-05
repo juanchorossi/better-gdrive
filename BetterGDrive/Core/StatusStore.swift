@@ -259,7 +259,7 @@ final class StatusStore: ObservableObject {
 
     @MainActor
     private func retryErrorJobs() {
-        guard !needsSetup else { return }
+        guard !needsSetup, daemonReady else { return }
         for def in jobDefinitions {
             guard let job = jobs.first(where: { $0.id == def.id }),
                   !job.isRunning, job.status != .paused, job.status != .tokenError else { continue }
@@ -271,7 +271,7 @@ final class StatusStore: ObservableObject {
 
     @MainActor
     private func triggerAutoSyncIfDue() {
-        guard !needsSetup else { return }
+        guard !needsSetup, daemonReady else { return }
         guard !isHotspotPaused else { return }
         let interval = configStore.config.syncIntervalMinutes
         let threshold = interval > 0 ? TimeInterval(interval * 60) : nil
@@ -530,19 +530,32 @@ final class StatusStore: ObservableObject {
         }
 
         do {
-            let rcId = try await RcloneRC.startSync(job: def)
+            let rcId = try await launchSync(def)
             await MainActor.run { runningJobs[def.id] = rcId }
         } catch {
-            let msg = friendlyError(error.localizedDescription)
+            let raw = error.localizedDescription
+            let isToken = Self.isTokenError(raw)
+            let msg = friendlyError(raw)
             await MainActor.run {
                 if let i = jobs.firstIndex(where: { $0.id == def.id }) {
                     jobs[i].isRunning = false
-                    jobs[i].status = .error
-                    jobs[i].errorMessage = msg
+                    jobs[i].status = isToken ? .tokenError : .error
+                    jobs[i].errorMessage = isToken ? nil : msg
                 }
-                UserDefaults.standard.set("error", forKey: "status.\(def.id)")
-                UserDefaults.standard.set(msg, forKey: "errorMessage.\(def.id)")
+                UserDefaults.standard.set(isToken ? "error" : "error", forKey: "status.\(def.id)")
+                if !isToken { UserDefaults.standard.set(msg, forKey: "errorMessage.\(def.id)") }
             }
+        }
+    }
+
+    // Attempts to start the rclone job; on RC 401 (daemon auth mismatch after a
+    // secret rotation), ensures a fresh daemon and retries exactly once.
+    private func launchSync(_ def: JobDefinition) async throws -> Int {
+        do {
+            return try await RcloneRC.startSync(job: def)
+        } catch let error as NSError where error.code == 401 {
+            await RcloneRC.ensureDaemon()
+            return try await RcloneRC.startSync(job: def)
         }
     }
 
@@ -740,7 +753,8 @@ final class StatusStore: ObservableObject {
         return low.contains("invalid_grant") ||
                low.contains("token has expired") ||
                low.contains("token expired") ||
-               low.contains("autherror")
+               low.contains("autherror") ||
+               low == "rc error 401"
     }
 
     private func friendlyError(_ raw: String?) -> String {
