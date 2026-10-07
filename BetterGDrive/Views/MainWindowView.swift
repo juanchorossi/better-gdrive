@@ -191,8 +191,13 @@ struct MainStatusView: View {
         }
         if store.isAnySyncRunning                                   { return L.Status.syncingDetail }
         if store.hasTokenError                                      { return "One or more folders need to reconnect to Google" }
-        if let errJob = store.jobs.first(where: { $0.status == .error }) {
-            return errJob.errorMessage ?? L.Status.errorDetail
+        if store.jobs.contains(where: { $0.status == .error }) {
+            let errJobs = store.jobs.filter { $0.status == .error }
+            let msg = errJobs.first?.errorMessage ?? L.Status.errorDetail
+            if errJobs.count > 1 {
+                return "\(errJobs.count) folders failed — click ▶ to retry"
+            }
+            return "\(errJobs[0].name): \(msg.lowercased())"
         }
         if store.jobs.contains(where: { $0.status == .paused })    { return "Click play to resume syncing" }
         if store.isHotspotPaused                                    { return "Automatic sync paused on metered connection" }
@@ -245,11 +250,17 @@ struct MainJobRow: View {
                     }
                     .buttonStyle(.plain)
                 } else if job.status == .paused {
-                    // Always-visible blue play button for paused jobs
                     Button { store.run(job) } label: {
                         Image(systemName: "play.circle")
                             .font(.title3)
                             .foregroundStyle(.blue)
+                    }
+                    .buttonStyle(.plain)
+                } else if job.status == .error {
+                    Button { store.run(job) } label: {
+                        Image(systemName: "play.circle")
+                            .font(.title3)
+                            .foregroundStyle(.orange)
                     }
                     .buttonStyle(.plain)
                 } else {

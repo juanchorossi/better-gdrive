@@ -76,10 +76,13 @@ final class StatusStore: ObservableObject {
 
     var headerTitle: String {
         if jobs.isEmpty                      { return L.General.appName }
-        if isAnySyncRunning && hasTokenError { return "Syncing · Action needed" }
+        if isAnySyncRunning && hasTokenError { return "Syncing · \(L.Status.tokenExpired)" }
         if isAnySyncRunning                  { return L.Status.syncing }
         if hasTokenError                     { return L.Status.tokenExpired }
-        if hasError                          { return L.Status.syncError }
+        if hasError {
+            let n = jobs.filter { $0.status == .error }.count
+            return n > 1 ? "\(n) folders failed" : L.Status.syncError
+        }
         if hasAnyPaused                      { return "Paused" }
         if isHotspotPaused                   { return "Paused · Hotspot" }
         if let oldest = jobs.compactMap(\.lastSync).min() {

@@ -279,6 +279,9 @@ struct JobRow: View {
                 } else if job.status == .paused {
                     Image(systemName: "play.circle")
                         .foregroundStyle(.blue)
+                } else if job.status == .error {
+                    Image(systemName: "play.circle")
+                        .foregroundStyle(.orange)
                 } else {
                     Image(systemName: "play.circle")
                         .foregroundStyle(.secondary)
