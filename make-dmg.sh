@@ -3,7 +3,7 @@ set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 APP_NAME="Better GDrive"
-VERSION="1.1.0"
+VERSION="1.2.0"
 DMG_NAME="BetterGDrive-${VERSION}.dmg"
 STAGING="$SCRIPT_DIR/.dmg-staging"
 OUTPUT="$SCRIPT_DIR/$DMG_NAME"
@@ -11,13 +11,16 @@ OUTPUT="$SCRIPT_DIR/$DMG_NAME"
 echo "▸ Better GDrive — DMG builder"
 echo ""
 
-# Locate the app — prefer /Applications, fall back to build output
+# Locate the app — prefer /Applications, fall back to Xcode DerivedData or local .build
+DERIVED=$(find ~/Library/Developer/Xcode/DerivedData -name "$APP_NAME.app" -path "*/Debug/*" 2>/dev/null | head -1)
 if [[ -d "/Applications/$APP_NAME.app" ]]; then
   APP_PATH="/Applications/$APP_NAME.app"
+elif [[ -n "$DERIVED" && -d "$DERIVED" ]]; then
+  APP_PATH="$DERIVED"
 elif [[ -d "$SCRIPT_DIR/.build/Build/Products/Debug/$APP_NAME.app" ]]; then
   APP_PATH="$SCRIPT_DIR/.build/Build/Products/Debug/$APP_NAME.app"
 else
-  echo "  ✗ App not found. Run ./install.sh first."
+  echo "  ✗ App not found. Build the project in Xcode first."
   exit 1
 fi
 echo "  Using $APP_PATH"
