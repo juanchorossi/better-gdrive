@@ -770,29 +770,39 @@ final class StatusStore: ObservableObject {
 
     private func friendlyError(_ raw: String?) -> String {
         guard let raw, !raw.isEmpty else { return "Unknown error" }
+        let low = raw.lowercased()
         if Self.isTokenError(raw) {
-            return "Token expired — reconnect in Settings"
+            return "Sign-in expired — reconnect in Settings"
         }
-        if raw.contains("no space left") || raw.contains("quota") {
+        // rclone safety: stops deleting when it hits IO errors (both files and directories variant)
+        if low.contains("not deleting") && low.contains("io error") {
+            return "Some files failed — nothing deleted"
+        }
+        if low.contains("no space left") || low.contains("quota") {
             return "Drive storage full"
         }
-        if raw.contains("permission") || raw.contains("forbidden") {
+        if low.contains("permission") || low.contains("forbidden") {
             return "Permission denied"
         }
-        if raw.contains("no such host") || raw.contains("network is unreachable") ||
-           raw.contains("connection refused") {
+        if low.contains("no such host") || low.contains("network is unreachable") ||
+           low.contains("connection refused") {
             return "No internet connection"
         }
-        if raw.contains("i/o timeout") || raw.contains("deadline exceeded") {
+        if low.contains("i/o timeout") || low.contains("deadline exceeded") {
             return "Network timeout"
         }
-        if raw.contains("connection reset") || raw.contains("broken pipe") {
+        if low.contains("connection reset") || low.contains("broken pipe") {
             return "Connection interrupted"
+        }
+        if low.contains("directory not found") || low.contains("no such file or directory") {
+            return "Folder not found"
         }
         // Strip rclone path prefixes and return the last meaningful segment
         let clean = raw.components(separatedBy: ": ").last ?? raw
         let trimmed = clean.trimmingCharacters(in: .whitespaces)
-        return String((trimmed.isEmpty ? raw : trimmed).prefix(80))
+        let result = trimmed.isEmpty ? raw : trimmed
+        let capped = String(result.prefix(80))
+        return capped.first.map { String($0).uppercased() + capped.dropFirst() } ?? capped
     }
 
     private static let countFormatter: NumberFormatter = {

@@ -27,7 +27,7 @@ enum L {
     enum Status {
         static let upToDate       = "Up to date"
         static let syncing        = "Syncing…"
-        static let tokenExpired   = "Token expired"
+        static let tokenExpired   = "Sign-in expired"
         static let syncError      = "Sync error"
         static let upToDateDetail = "All files are synced with Google Drive"
         static let syncingDetail  = "Syncing files with Google Drive"

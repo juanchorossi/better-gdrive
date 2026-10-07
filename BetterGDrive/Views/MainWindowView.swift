@@ -145,10 +145,10 @@ struct MainStatusView: View {
                         Image(systemName: "arrow.right")
                     }
                     .font(.caption.bold())
-                    .foregroundStyle(.red)
+                    .foregroundStyle(.orange)
                     .padding(.horizontal, 10)
                     .padding(.vertical, 5)
-                    .background(Color.red.opacity(0.1))
+                    .background(Color.orange.opacity(0.1))
                     .clipShape(RoundedRectangle(cornerRadius: 6))
                 }
                 .buttonStyle(.plain)
@@ -169,16 +169,16 @@ struct MainStatusView: View {
     private var bannerColor: Color {
         if store.isAnySyncRunning && store.hasTokenError            { return .orange }
         if store.isAnySyncRunning                                   { return .blue }
-        if store.hasTokenError                                      { return .red }
+        if store.hasTokenError                                      { return .orange }
         if store.jobs.contains(where: { $0.status == .error })     { return .orange }
         if store.jobs.contains(where: { $0.status == .paused })    { return .blue }
         if store.isHotspotPaused                                    { return .blue }
         return .green
     }
     private var bannerTitle: String {
-        if store.isAnySyncRunning && store.hasTokenError            { return "Syncing · Action needed" }
+        if store.isAnySyncRunning && store.hasTokenError            { return "Syncing · \(L.Status.tokenExpired)" }
         if store.isAnySyncRunning                                   { return L.Status.syncing }
-        if store.hasTokenError                                      { return "Action needed" }
+        if store.hasTokenError                                      { return L.Status.tokenExpired }
         if store.jobs.contains(where: { $0.status == .error })     { return L.Status.syncError }
         if store.jobs.contains(where: { $0.status == .paused })    { return "Paused" }
         if store.isHotspotPaused                                    { return "Paused · Hotspot" }
@@ -194,7 +194,7 @@ struct MainStatusView: View {
         if let errJob = store.jobs.first(where: { $0.status == .error }) {
             return errJob.errorMessage ?? L.Status.errorDetail
         }
-        if store.jobs.contains(where: { $0.status == .paused })    { return "Tap play to resume syncing" }
+        if store.jobs.contains(where: { $0.status == .paused })    { return "Click play to resume syncing" }
         if store.isHotspotPaused                                    { return "Automatic sync paused on metered connection" }
         let oldest = store.jobs.compactMap(\.lastSync).min()
         return oldest.map { d in
@@ -301,15 +301,17 @@ struct MainJobRow: View {
                 }
             }
         } else if job.status == .tokenError {
-            if let display = job.lastSyncDisplay {
-                Text(display).font(.caption).foregroundStyle(.secondary)
-            }
+            Text("Sign-in required")
+                .font(.caption).foregroundStyle(.orange)
         } else if job.status == .error {
             Text(job.errorMessage ?? "Sync failed")
                 .font(.caption).foregroundStyle(.orange)
                 .lineLimit(1).truncationMode(.tail)
+        } else if job.hasLocalChanges {
+            Text("Changes detected…")
+                .font(.caption).foregroundStyle(.secondary)
         } else if let display = job.lastSyncDisplay {
-            Text(display)
+            Text("Synced \(display)")
                 .font(.caption).foregroundStyle(.secondary)
         } else {
             Text("Never synced")
@@ -661,7 +663,7 @@ struct MainSettingsView: View {
     private var disconnectedInfo: some View {
         VStack(alignment: .leading, spacing: 2) {
             Text("Google Drive").fontWeight(.medium)
-            Text("Token expired or not connected")
+            Text("Sign-in expired or not connected")
                 .font(.caption).foregroundStyle(.orange)
         }
     }

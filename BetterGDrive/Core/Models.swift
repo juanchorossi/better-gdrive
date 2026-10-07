@@ -35,6 +35,16 @@ struct SyncJob: Identifiable {
         let days = Int(diff / 86400)
         return days == 1 ? "yesterday" : "\(days) days ago"
     }
+
+    var relativeTime: String? {
+        guard let date = lastSync else { return nil }
+        let diff = -date.timeIntervalSinceNow
+        if diff < 60    { return L.General.now }
+        if diff < 3600  { return "\(Int(diff / 60))m" }
+        if diff < 86400 { return "\(Int(diff / 3600))h" }
+        return "\(Int(diff / 86400))d"
+    }
+
 }
 
 struct ActivityItem: Identifiable, Codable {

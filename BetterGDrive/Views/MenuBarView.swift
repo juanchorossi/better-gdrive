@@ -321,9 +321,8 @@ struct JobRow: View {
                 }
             }
         } else if job.status == .tokenError {
-            if let display = job.lastSyncDisplay {
-                Text(display).font(.caption2).foregroundStyle(.secondary)
-            }
+            Text("Sign-in required")
+                .font(.caption2).foregroundStyle(.orange)
         } else if job.status == .error {
             Text(job.errorMessage ?? "Sync failed")
                 .font(.caption2).foregroundStyle(.orange)
@@ -335,7 +334,7 @@ struct JobRow: View {
             Text("Changes detected…")
                 .font(.caption2).foregroundStyle(.secondary)
         } else if let display = job.lastSyncDisplay {
-            Text(display)
+            Text("Synced \(display)")
                 .font(.caption2).foregroundStyle(.secondary)
         } else {
             Text("Never synced")
