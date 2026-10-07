@@ -797,6 +797,10 @@ final class StatusStore: ObservableObject {
         if low.contains("directory not found") || low.contains("no such file or directory") {
             return "Folder not found"
         }
+        // RC daemon auth/internal errors (e.g. "RC error 401" when secret rotated after retry)
+        if low.hasPrefix("rc error") {
+            return "Sync service error"
+        }
         // Strip rclone path prefixes and return the last meaningful segment
         let clean = raw.components(separatedBy: ": ").last ?? raw
         let trimmed = clean.trimmingCharacters(in: .whitespaces)
