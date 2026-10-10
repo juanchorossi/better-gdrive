@@ -283,7 +283,7 @@
 				ENABLE_TESTABILITY = YES;
 				INFOPLIST_FILE = BetterGDrive/App/Info.plist;
 				LD_RUNPATH_SEARCH_PATHS = "$(inherited) @executable_path/../Frameworks";
-				MARKETING_VERSION = 1.2.0;
+				MARKETING_VERSION = 1.2.1;
 				PRODUCT_BUNDLE_IDENTIFIER = com.juanrossi.bettergdrive;
 				PRODUCT_NAME = "Better GDrive";
 				SDKROOT = macosx;
@@ -305,7 +305,7 @@
 				ENABLE_TESTABILITY = NO;
 				INFOPLIST_FILE = BetterGDrive/App/Info.plist;
 				LD_RUNPATH_SEARCH_PATHS = "$(inherited) @executable_path/../Frameworks";
-				MARKETING_VERSION = 1.2.0;
+				MARKETING_VERSION = 1.2.1;
 				PRODUCT_BUNDLE_IDENTIFIER = com.juanrossi.bettergdrive;
 				PRODUCT_NAME = "Better GDrive";
 				SDKROOT = macosx;
