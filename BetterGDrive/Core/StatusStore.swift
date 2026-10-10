@@ -205,8 +205,8 @@ final class StatusStore: ObservableObject {
     @MainActor
     func refreshAfterSetup() async {
         needsSetup = false
-        await RcloneRC.ensureDaemon()
-        await MainActor.run { daemonReady = true }
+        let ready = await RcloneRC.ensureDaemon()
+        await MainActor.run { daemonReady = ready }
         let info = try? await RcloneRC.fetchGoogleUserInfo()
         await MainActor.run { googleAccount = info; isLoadingAccount = false }
     }
@@ -223,14 +223,21 @@ final class StatusStore: ObservableObject {
         }
 
         Task {
-            await RcloneRC.ensureDaemon()
+            let ready = await RcloneRC.ensureDaemon()
             let savedBwlimit = configStore.config.bwlimit
-            await RcloneRC.setBwlimit(savedBwlimit)
+            if ready { await RcloneRC.setBwlimit(savedBwlimit) }
+
+            // Clear any rcIds left over from a previous session that are unknown to the new daemon.
+            let liveJobIDs = ready ? await RcloneRC.listJobIDs() : []
             await MainActor.run {
-                daemonReady = true
-                self.startWatchers()
-                self.triggerAutoSyncIfDue()
-                self.retryErrorJobs()
+                daemonReady = ready
+                if ready {
+                    let stale = runningJobs.filter { !liveJobIDs.contains($0.value) }.map { $0.key }
+                    stale.forEach { runningJobs.removeValue(forKey: $0) }
+                    self.startWatchers()
+                    self.triggerAutoSyncIfDue()
+                    self.retryErrorJobs()
+                }
             }
             let info = try? await RcloneRC.fetchGoogleUserInfo()
             await MainActor.run { googleAccount = info; isLoadingAccount = false }
@@ -557,7 +564,7 @@ final class StatusStore: ObservableObject {
                     jobs[i].status = isToken ? .tokenError : .error
                     jobs[i].errorMessage = isToken ? nil : msg
                 }
-                UserDefaults.standard.set(isToken ? "error" : "error", forKey: "status.\(def.id)")
+                UserDefaults.standard.set(isToken ? "tokenError" : "error", forKey: "status.\(def.id)")
                 if !isToken { UserDefaults.standard.set(msg, forKey: "errorMessage.\(def.id)") }
             }
         }

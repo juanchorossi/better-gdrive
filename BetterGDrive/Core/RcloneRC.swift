@@ -80,8 +80,9 @@ enum RcloneRC {
 
     // MARK: Daemon lifecycle
 
-    static func ensureDaemon() async {
-        guard !(await ping()) else { return }
+    @discardableResult
+    static func ensureDaemon() async -> Bool {
+        guard !(await ping()) else { return true }
 
         // Kill the tracked daemon if we have a reference to it.
         if let old = daemon {
@@ -94,14 +95,17 @@ enum RcloneRC {
 
         // Kill any orphaned rclone holding the port — happens when the app restarts
         // and loses the Process reference (self.daemon == nil in the new launch).
-        // Without this, the new daemon can't bind the port and every RC call returns 401.
+        // SIGKILL because an unresponsive rclone won't honor SIGTERM.
         let killer = Process()
         killer.executableURL = URL(fileURLWithPath: "/bin/sh")
-        killer.arguments = ["-c", "lsof -ti tcp:\(port) | xargs kill 2>/dev/null; true"]
+        killer.arguments = ["-c", "lsof -ti tcp:\(port) | xargs kill -9 2>/dev/null; true"]
         killer.standardOutput = FileHandle.nullDevice
         killer.standardError  = FileHandle.nullDevice
         try? killer.run()
         killer.waitUntilExit()
+
+        // Brief wait for the OS to release the port binding after SIGKILL.
+        try? await Task.sleep(nanoseconds: 200_000_000)
 
         // Rotate secret on each new daemon start.
         rcSecret = UUID().uuidString
@@ -127,11 +131,18 @@ enum RcloneRC {
         // Wait until ready (max 3s)
         for _ in 0..<6 {
             try? await Task.sleep(nanoseconds: 500_000_000)
-            if await ping() { return }
+            if await ping() { return true }
         }
+        return false
     }
 
     static func stopDaemon() { daemon?.terminate(); daemon = nil }
+
+    static func listJobIDs() async -> Set<Int> {
+        struct Resp: Decodable { let jobids: [Int]? }
+        let r = try? await post("job/list", body: [:]) as Resp
+        return Set(r?.jobids ?? [])
+    }
 
     static func setBwlimit(_ schedule: String) async {
         _ = try? await post("core/bwlimit", body: ["rate": schedule]) as RCEmpty
