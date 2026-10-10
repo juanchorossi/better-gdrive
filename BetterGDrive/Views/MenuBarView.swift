@@ -268,11 +268,6 @@ struct JobRow: View {
                 Spacer()
 
                 if job.isRunning {
-                    if let pct = job.progress {
-                        Text("\(Int(pct * 100))%")
-                            .font(.caption.monospacedDigit())
-                            .foregroundStyle(.blue)
-                    }
                     Image(systemName: "pause.circle")
                         .foregroundStyle(.secondary)
                         .opacity(hovered ? 1 : 0)
@@ -362,7 +357,13 @@ struct JobRow: View {
         if job.isFinishing {
             ProgressView().progressViewStyle(.linear).tint(.blue).padding(.leading, 24)
         } else if let p = job.progress {
-            ProgressView(value: p).tint(.blue).padding(.leading, 24)
+            HStack(spacing: 6) {
+                ProgressView(value: p).tint(.blue)
+                Text("\(Int(p * 100))%")
+                    .font(.caption.monospacedDigit())
+                    .foregroundStyle(.blue)
+            }
+            .padding(.leading, 24)
         }
         if let file = job.currentFile {
             Text(file)
