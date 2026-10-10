@@ -83,16 +83,25 @@ enum RcloneRC {
     static func ensureDaemon() async {
         guard !(await ping()) else { return }
 
-        // Kill the old daemon (hung or crashed) before starting a fresh one.
-        // If we don't, the new process can't bind port 5572 and fails silently.
+        // Kill the tracked daemon if we have a reference to it.
         if let old = daemon {
             old.terminate()
-            // Wait for the process to actually exit so it releases the port.
             await withCheckedContinuation { (c: CheckedContinuation<Void, Never>) in
                 DispatchQueue.global(qos: .utility).async { old.waitUntilExit(); c.resume() }
             }
             daemon = nil
         }
+
+        // Kill any orphaned rclone holding the port — happens when the app restarts
+        // and loses the Process reference (self.daemon == nil in the new launch).
+        // Without this, the new daemon can't bind the port and every RC call returns 401.
+        let killer = Process()
+        killer.executableURL = URL(fileURLWithPath: "/bin/sh")
+        killer.arguments = ["-c", "lsof -ti tcp:\(port) | xargs kill 2>/dev/null; true"]
+        killer.standardOutput = FileHandle.nullDevice
+        killer.standardError  = FileHandle.nullDevice
+        try? killer.run()
+        killer.waitUntilExit()
 
         // Rotate secret on each new daemon start.
         rcSecret = UUID().uuidString
