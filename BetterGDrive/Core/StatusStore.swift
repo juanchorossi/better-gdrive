@@ -873,7 +873,10 @@ final class StatusStore: ObservableObject {
         if low.contains("not deleting") && low.contains("io error") {
             // Name the actual cause when rclone told us (e.g. a root-owned folder in the backup).
             if let cause = Self.unreadableFolder(in: lastDetail, localPath: localPath) {
-                return "Can't read \"\(cause)\" — no permission"
+                // Keep the row readable: last two path components; the tooltip has the full path.
+                let comps = cause.split(separator: "/")
+                let short = comps.count > 2 ? "…/" + comps.suffix(2).joined(separator: "/") : cause
+                return "Can't read \"\(short)\" — no permission"
             }
             if errorCount == 1 { return "1 file failed — nothing deleted" }
             if errorCount > 1  { return "\(errorCount) files failed — nothing deleted" }

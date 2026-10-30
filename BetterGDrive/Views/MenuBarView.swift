@@ -324,7 +324,7 @@ struct JobRow: View {
         } else if job.status == .error {
             Text(job.errorSubtitle)
                 .font(.caption2).foregroundStyle(.orange)
-                .lineLimit(1).truncationMode(.tail)
+                .lineLimit(1).truncationMode(.middle)
                 .help(job.errorTooltip ?? job.errorSubtitle)
         } else if job.status == .paused {
             Text("Paused")

@@ -317,7 +317,7 @@ struct MainJobRow: View {
         } else if job.status == .error {
             Text(job.errorSubtitle)
                 .font(.caption).foregroundStyle(.orange)
-                .lineLimit(1).truncationMode(.tail)
+                .lineLimit(1).truncationMode(.middle)
                 .help(job.errorTooltip ?? job.errorSubtitle)
         } else if job.hasLocalChanges {
             Text("Changes detected…")

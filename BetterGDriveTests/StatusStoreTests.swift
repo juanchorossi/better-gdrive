@@ -265,7 +265,11 @@ final class StatusStoreTests: XCTestCase {
         let raw = "not deleting files as there were IO errors"
         let detail = "failed to get info about directory entry \"/Users/me/Documents/Ualá/Netskope Bkp/EPDLP/logs/epdlp.err.log\": lstat /Users/me/Documents/Ualá/Netskope Bkp/EPDLP/logs/epdlp.err.log: permission denied"
         XCTAssertEqual(store.friendlyError(raw, errorCount: 2, lastDetail: detail, localPath: "/Users/me/Documents/Ualá"),
-                       "Can't read \"Netskope Bkp/EPDLP/logs\" — no permission")
+                       "Can't read \"…/EPDLP/logs\" — no permission")
+        // Short paths are shown whole
+        let shallow = "failed to get info about directory entry \"/Users/me/Documents/Ualá/logs/a.log\": lstat: permission denied"
+        XCTAssertEqual(store.friendlyError(raw, errorCount: 1, lastDetail: shallow, localPath: "/Users/me/Documents/Ualá"),
+                       "Can't read \"logs\" — no permission")
         // Unrelated detail keeps the count message
         XCTAssertEqual(store.friendlyError(raw, errorCount: 2, lastDetail: "googleapi: Error 500", localPath: "/Users/me/Documents/Ualá"),
                        "2 files failed — nothing deleted")
