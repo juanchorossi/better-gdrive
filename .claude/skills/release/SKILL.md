@@ -21,6 +21,7 @@ reportar la salida real y no seguir con los siguientes.
 ```bash
 git status --short          # debe estar vacío: todo lo que va al release ya está commiteado
 git branch --show-current   # main
+git fetch --tags origin     # los tags viven en GitHub; el clon local puede no tenerlos
 gh auth status              # logueado como juanchorossi
 test -x BetterGDrive/Resources/rclone && echo rclone-ok
 ```
@@ -42,7 +43,8 @@ BUILD=$(sed -n 's/^ *CURRENT_PROJECT_VERSION: *"\([^"]*\)".*/\1/p' project.yml |
 ```
 
 - Versión nueva = argumento del skill, o `CURRENT` con patch +1.
-- Verificar que no exista ya el tag: `git tag -l "v$NEW"` debe estar vacío.
+- Verificar que no exista ya el tag en GitHub:
+  `git ls-remote --tags origin "refs/tags/v$NEW"` debe estar vacío.
 - Editar `project.yml`: `MARKETING_VERSION: "$NEW"` y
   `CURRENT_PROJECT_VERSION: "$((BUILD + 1))"`.
 
@@ -85,7 +87,7 @@ lsof -nP -iTCP:5572 -sTCP:LISTEN | grep -q rclone && echo daemon-listening
 
 Si falta `rclone-bundled`, el build no es publicable: hasta 1.2.1 el DMG salía
 sin rclone (1,8 MB) y solo andaba en Macs con rclone de Homebrew. El DMG
-correcto pesa alrededor de 35 MB.
+correcto pesa decenas de MB, no 1,8.
 
 Si las tres pasan, seguir sin preguntar. Si alguna falla, parar y pedirle al
 usuario que mire el app en el menú bar antes de publicar nada.
@@ -114,11 +116,15 @@ mensaje, si hay una indicada.
 Generar desde los commits desde el último tag:
 
 ```bash
-PREV=$(git describe --tags --abbrev=0 HEAD~1 2>/dev/null || git tag -l 'v*' | sort -V | tail -1)
+PREV=$(git tag -l 'v*' | sort -V | tail -1)      # requiere el fetch --tags del paso 0
 git log "$PREV"..HEAD --no-merges --pretty='- %s'
+NOTES="<scratchpad>/release-notes-$NEW.md"
 ```
 
-Escribir un archivo en el scratchpad con el formato de los releases
+Si `PREV` queda vacío, parar: sin tag previo las notas serían toda la
+historia del repo.
+
+Escribir `$NOTES` con el formato de los releases
 anteriores: título `## What's new`, subsecciones por tema (`### Status
 display`, `### Error messages`, `### Fixes`, etc.), una línea por cambio
 visible para el usuario. Omitir los commits de bump y de limpieza interna.
