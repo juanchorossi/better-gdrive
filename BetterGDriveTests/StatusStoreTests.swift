@@ -238,6 +238,60 @@ final class StatusStoreTests: XCTestCase {
         XCTAssertTrue(store.hasTokenError)
     }
 
+    // MARK: - Error classification
+
+    func testInvalidGrantIsTokenError() {
+        XCTAssertTrue(StatusStore.isTokenError("oauth2: \"invalid_grant\" \"Token has been expired or revoked.\""))
+        XCTAssertTrue(StatusStore.isTokenError("token expired and there's no refresh token"))
+    }
+
+    // A mid-sync Google 401 is a hiccup, not an expired sign-in (the token stays valid).
+    func testGoogle401IsHiccupNotTokenError() {
+        let raw = "couldn't list directory: googleapi: Error 401: Request had invalid authentication credentials., authError"
+        XCTAssertFalse(StatusStore.isTokenError(raw))
+        XCTAssertTrue(StatusStore.isGoogleAuthHiccup(raw))
+    }
+
+    func testIOErrorMessageIncludesCount() {
+        let store = StatusStore()
+        let raw = "not deleting files as there were IO errors"
+        XCTAssertEqual(store.friendlyError(raw), "Some files failed — nothing deleted")
+        XCTAssertEqual(store.friendlyError(raw, errorCount: 1), "1 file failed — nothing deleted")
+        XCTAssertEqual(store.friendlyError(raw, errorCount: 7), "7 files failed — nothing deleted")
+    }
+
+    // MARK: - Retry backoff
+
+    func testRetryDelayDoublesAndCaps() {
+        XCTAssertEqual(StatusStore.retryDelay(afterFailures: 1), 60)
+        XCTAssertEqual(StatusStore.retryDelay(afterFailures: 2), 120)
+        XCTAssertEqual(StatusStore.retryDelay(afterFailures: 5), 960)
+        XCTAssertEqual(StatusStore.retryDelay(afterFailures: 6), 1800)
+        XCTAssertEqual(StatusStore.retryDelay(afterFailures: 50), 1800)
+    }
+
+    // MARK: - Error subtitle
+
+    func testErrorSubtitleAppendsStreakAfterAnHour() {
+        var job = makeJob(status: .error)
+        job.errorMessage = "Some files failed — nothing deleted"
+        XCTAssertEqual(job.errorSubtitle, "Some files failed — nothing deleted")
+        job.failingSince = Date().addingTimeInterval(-30 * 60)
+        XCTAssertEqual(job.errorSubtitle, "Some files failed — nothing deleted")
+        job.failingSince = Date().addingTimeInterval(-5 * 3600)
+        XCTAssertEqual(job.errorSubtitle, "Some files failed — nothing deleted · failing for 5h")
+        job.failingSince = Date().addingTimeInterval(-12 * 86400)
+        XCTAssertEqual(job.errorSubtitle, "Some files failed — nothing deleted · failing for 12 days")
+    }
+
+    func testErrorTooltipCombinesCountAndDetail() {
+        var job = makeJob(status: .error)
+        XCTAssertNil(job.errorTooltip)
+        job.errors = 3
+        job.lastErrorDetail = "lstat x: permission denied"
+        XCTAssertEqual(job.errorTooltip, "3 files failed\nlstat x: permission denied")
+    }
+
     // MARK: - Helper
 
     private func makeJob(

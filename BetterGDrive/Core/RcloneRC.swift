@@ -23,10 +23,11 @@ struct RCStats: Decodable {
     let totalTransfers: Int?
     let checks: Int?
     let totalChecks: Int?
+    let lastError: String?
     let transferring: [RCTransferring]?
 
     enum CodingKeys: String, CodingKey {
-        case speed, bytes, errors, transfers, checks, transferring
+        case speed, bytes, errors, transfers, checks, transferring, lastError
         case totalBytes = "totalBytes"
         case totalTransfers = "totalTransfers"
         case totalChecks = "totalChecks"
@@ -96,9 +97,12 @@ enum RcloneRC {
         // Kill any orphaned rclone holding the port — happens when the app restarts
         // and loses the Process reference (self.daemon == nil in the new launch).
         // SIGKILL because an unresponsive rclone won't honor SIGTERM.
+        // Only the LISTENing process: a bare `lsof -i tcp:PORT` also matches clients
+        // with an open connection to the port — including this app's own ping — and
+        // would SIGKILL the app itself.
         let killer = Process()
         killer.executableURL = URL(fileURLWithPath: "/bin/sh")
-        killer.arguments = ["-c", "lsof -ti tcp:\(port) | xargs kill -9 2>/dev/null; true"]
+        killer.arguments = ["-c", "lsof -ti tcp:\(port) -sTCP:LISTEN | xargs kill -9 2>/dev/null; true"]
         killer.standardOutput = FileHandle.nullDevice
         killer.standardError  = FileHandle.nullDevice
         try? killer.run()
@@ -112,6 +116,7 @@ enum RcloneRC {
 
         let logURL = FileManager.default.homeDirectoryForCurrentUser
             .appendingPathComponent("Library/Logs/bettergdrive-rclone.log")
+        rotateLogIfNeeded(logURL)
 
         let p = Process()
         p.executableURL = URL(fileURLWithPath: rclonePath)
@@ -146,6 +151,40 @@ enum RcloneRC {
 
     static func setBwlimit(_ schedule: String) async {
         _ = try? await post("core/bwlimit", body: ["rate": schedule]) as RCEmpty
+    }
+
+    // rclone has no built-in log rotation. Keep one previous generation so the
+    // file never grows unbounded (a retry loop once pushed it past 500 MB).
+    private static let maxLogBytes: UInt64 = 50 * 1024 * 1024
+
+    static func rotateLogIfNeeded(_ logURL: URL) {
+        let fm = FileManager.default
+        guard let attrs = try? fm.attributesOfItem(atPath: logURL.path),
+              let size = attrs[.size] as? UInt64, size > maxLogBytes else { return }
+        let old = logURL.appendingPathExtension("old")
+        try? fm.removeItem(at: old)
+        try? fm.moveItem(at: logURL, to: old)
+    }
+
+    // Live check of the Google token through rclone itself (so rclone refreshes
+    // the access token if needed). true = valid, false = Google rejected the
+    // credentials, nil = could not determine (network, daemon down, ...).
+    static func verifyGoogleAuth(remote: String) async -> Bool? {
+        struct AboutResp: Decodable { let total: Int64? ; let used: Int64? }
+        do {
+            let _: AboutResp = try await post("operations/about", body: ["fs": "\(remote):"])
+            return true
+        } catch {
+            let low = error.localizedDescription.lowercased()
+            // "RC error 401" is the daemon rejecting *our* secret, not Google rejecting the token.
+            if low.hasPrefix("rc error") { return nil }
+            if low.contains("invalid_grant") || low.contains("autherror") ||
+               low.contains("error 401") || low.contains("token expired") ||
+               low.contains("token has expired") {
+                return false
+            }
+            return nil
+        }
     }
 
     static func fetchGoogleUserInfo() async throws -> GoogleUserInfo? {
@@ -270,7 +309,7 @@ enum RcloneRC {
             filterParams["FilterFrom"] = [p]
         }
         if !job.excludePatterns.isEmpty {
-            filterParams["Exclude"] = job.excludePatterns
+            filterParams["ExcludeRule"] = job.excludePatterns
         }
         if !filterParams.isEmpty {
             body["_filter"] = filterParams
@@ -306,7 +345,7 @@ enum RcloneRC {
         if let ff = job.filterFile {
             filterParams["FilterFrom"] = [ff.replacingOccurrences(of: "~", with: NSHomeDirectory())]
         }
-        if !job.excludePatterns.isEmpty { filterParams["Exclude"] = job.excludePatterns }
+        if !job.excludePatterns.isEmpty { filterParams["ExcludeRule"] = job.excludePatterns }
         if !filterParams.isEmpty { body["_filter"] = filterParams }
 
         guard let resp = try? await post("sync/sync", body: body) as RCSyncResponse else { return [] }

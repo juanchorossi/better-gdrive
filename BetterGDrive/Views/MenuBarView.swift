@@ -319,12 +319,13 @@ struct JobRow: View {
                 }
             }
         } else if job.status == .tokenError {
-            Text("Sign-in required")
+            Text(L.Status.tokenExpired)
                 .font(.caption2).foregroundStyle(.orange)
         } else if job.status == .error {
-            Text(job.errorMessage ?? "Sync failed")
+            Text(job.errorSubtitle)
                 .font(.caption2).foregroundStyle(.orange)
                 .lineLimit(1).truncationMode(.tail)
+                .help(job.errorTooltip ?? job.errorSubtitle)
         } else if job.status == .paused {
             Text("Paused")
                 .font(.caption2).foregroundStyle(.blue)

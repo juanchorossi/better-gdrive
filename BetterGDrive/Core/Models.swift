@@ -25,6 +25,34 @@ struct SyncJob: Identifiable {
     var errorMessage: String?  // last rclone error, shown in subtitle
     var hasLocalChanges: Bool = false  // true during FSEvents debounce window
     var direction: SyncDirection = .upload
+    var failingSince: Date?        // first failure of the current error streak (persisted)
+    var lastErrorDetail: String?   // rclone's last per-file error, shown as tooltip
+
+    // "12 days" / "3h" — nil while the streak is shorter than an hour.
+    var failingForDisplay: String? {
+        guard let since = failingSince else { return nil }
+        let diff = -since.timeIntervalSinceNow
+        if diff < 3600  { return nil }
+        if diff < 86400 { return "\(Int(diff / 3600))h" }
+        let days = Int(diff / 86400)
+        return days == 1 ? "1 day" : "\(days) days"
+    }
+
+    // Subtitle for a job in .error: message plus streak length when it's been a while.
+    var errorSubtitle: String {
+        let msg = errorMessage ?? "Sync failed"
+        guard let dur = failingForDisplay else { return msg }
+        return "\(msg) · failing for \(dur)"
+    }
+
+    // Tooltip text for an error row: last failed path + reason, if rclone gave one.
+    var errorTooltip: String? {
+        guard status == .error else { return nil }
+        var parts: [String] = []
+        if errors > 0 { parts.append(errors == 1 ? "1 file failed" : "\(errors) files failed") }
+        if let d = lastErrorDetail, !d.isEmpty { parts.append(d) }
+        return parts.isEmpty ? nil : parts.joined(separator: "\n")
+    }
 
     var lastSyncDisplay: String? {
         guard let date = lastSync else { return nil }

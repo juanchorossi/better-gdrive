@@ -62,6 +62,10 @@ final class StatusStore: ObservableObject {
     private var debounceTask: [String: Task<Void, Never>] = [:]
     // Jobs that need a sync triggered once their current run finishes
     private var pendingSyncAfterRun: Set<String> = []
+    // Exponential backoff for jobs in .error: 1m, 2m, 4m … capped at 30m. In-memory only.
+    private var consecutiveFailures: [String: Int] = [:]
+    private var nextRetryAt: [String: Date] = [:]
+    private static let maxRetryDelay: TimeInterval = 30 * 60
 
     private static let watcherDebounceNs: UInt64 = 15_000_000_000  // 15 seconds
 
@@ -241,6 +245,13 @@ final class StatusStore: ObservableObject {
             }
             let info = try? await RcloneRC.fetchGoogleUserInfo()
             await MainActor.run { googleAccount = info; isLoadingAccount = false }
+
+            // "Sign-in expired" is sticky across launches. If Google actually accepts
+            // the token now, clear it and let those folders sync.
+            let stuck = await MainActor.run { hasTokenError ? remoteName(for: jobs.first(where: { $0.status == .tokenError })?.id ?? "") : nil }
+            if ready, let remote = stuck, await RcloneRC.verifyGoogleAuth(remote: remote) == true {
+                await MainActor.run { resetTokenErrorJobs() }
+            }
         }
 
         Task {
@@ -303,11 +314,13 @@ final class StatusStore: ObservableObject {
                   !jobs.contains(where: { $0.id == def.id && $0.status == .paused }) else { continue }
             let jobStatus = jobs.first(where: { $0.id == def.id })?.status
             let lastSync = UserDefaults.standard.object(forKey: "lastSync.\(def.id)") as? Date
-            // Transient errors (network, timeout) should always retry — don't leave jobs stuck forever.
-            // Token errors need user action so skip them here.
+            // Errors retry with exponential backoff (see finishJob) so a folder that can
+            // never succeed doesn't re-scan Drive every minute. Token errors need user action.
             let overdue: Bool
             if jobStatus == .error {
-                overdue = true
+                overdue = nextRetryAt[def.id].map { Date() >= $0 } ?? true
+            } else if jobStatus == .tokenError {
+                overdue = false
             } else if let lastSync, let threshold {
                 overdue = -lastSync.timeIntervalSinceNow > threshold
             } else {
@@ -322,6 +335,7 @@ final class StatusStore: ObservableObject {
         for i in jobs.indices where jobs[i].status == .tokenError || jobs[i].status == .error {
             jobs[i].status       = .unknown
             jobs[i].errorMessage = nil
+            clearBackoff(jobs[i].id)
             UserDefaults.standard.removeObject(forKey: "status.\(jobs[i].id)")
             UserDefaults.standard.removeObject(forKey: "errorMessage.\(jobs[i].id)")
         }
@@ -334,6 +348,7 @@ final class StatusStore: ObservableObject {
 
     func run(_ job: SyncJob) {
         guard let def = jobDefinitions.first(where: { $0.id == job.id }) else { return }
+        clearBackoff(def.id)  // explicit ▶ always runs now
         guard !def.copyMode && def.direction == .upload else {
             Task { await startJob(def) }
             return
@@ -376,18 +391,44 @@ final class StatusStore: ObservableObject {
     func runDefinition(_ def: JobDefinition) {
         // Ensure the job exists in jobs[] — config may not have propagated yet
         if !jobs.contains(where: { $0.id == def.id }) {
-            let lastSync = UserDefaults.standard.object(forKey: "lastSync.\(def.id)") as? Date
-            let ok = UserDefaults.standard.string(forKey: "status.\(def.id)") == "ok"
-            jobs.append(SyncJob(id: def.id, name: def.name,
-                                status: lastSync != nil ? (ok ? .ok : .error) : .unknown,
-                                lastSync: lastSync, errors: 0, isRunning: false,
-                                direction: def.direction))
+            jobs.append(restoredJob(for: def))
         }
         Task { await startJob(def) }
     }
 
     func runAll() {
-        for def in jobDefinitions { Task { await startJob(def) } }
+        for def in jobDefinitions { clearBackoff(def.id); Task { await startJob(def) } }
+    }
+
+    private func clearBackoff(_ id: String) {
+        consecutiveFailures.removeValue(forKey: id)
+        nextRetryAt.removeValue(forKey: id)
+    }
+
+    private func remoteName(for configId: String) -> String {
+        let path = jobDefinitions.first(where: { $0.id == configId })?.drivePath ?? "gdrive:"
+        return path.split(separator: ":").first.map(String.init) ?? "gdrive"
+    }
+
+    // Restores a job's persisted state (status, message, failing-since) for the given definition.
+    private func restoredJob(for def: JobDefinition) -> SyncJob {
+        let lastSync   = UserDefaults.standard.object(forKey: "lastSync.\(def.id)") as? Date
+        let savedState = UserDefaults.standard.string(forKey: "status.\(def.id)")
+        let status: JobStatus
+        switch savedState {
+        case "paused":     status = .paused
+        case "tokenError": status = .tokenError
+        case "ok":         status = lastSync == nil ? .unknown : .ok
+        default:           status = .unknown  // "error" retries once the daemon is ready
+        }
+        var job = SyncJob(id: def.id, name: def.name, status: status,
+                          lastSync: lastSync, errors: 0, isRunning: false,
+                          direction: def.direction)
+        job.failingSince = UserDefaults.standard.object(forKey: "failingSince.\(def.id)") as? Date
+        if savedState == "error" {
+            job.errorMessage = UserDefaults.standard.string(forKey: "errorMessage.\(def.id)")
+        }
+        return job
     }
 
     func pause(_ job: SyncJob) {
@@ -452,18 +493,7 @@ final class StatusStore: ObservableObject {
     // MARK: - Private
 
     private func buildJobs() -> [SyncJob] {
-        jobDefinitions.map { def in
-            let lastSync   = UserDefaults.standard.object(forKey: "lastSync.\(def.id)") as? Date
-            let savedState = UserDefaults.standard.string(forKey: "status.\(def.id)")
-            let status: JobStatus
-            if savedState == "paused"      { status = .paused }
-            else if lastSync == nil        { status = .unknown }
-            else if savedState == "ok"     { status = .ok }
-            else                           { status = .unknown }  // retry fires once daemon is ready
-            return SyncJob(id: def.id, name: def.name, status: status,
-                           lastSync: lastSync, errors: 0, isRunning: false,
-                           direction: def.direction)
-        }
+        jobDefinitions.map { restoredJob(for: $0) }
     }
 
     private func syncJobsFromConfig() {
@@ -473,16 +503,7 @@ final class StatusStore: ObservableObject {
             if let existing = jobs.first(where: { $0.id == def.id }) {
                 return existing
             }
-            let lastSync = UserDefaults.standard.object(forKey: "lastSync.\(def.id)") as? Date
-            let ok       = UserDefaults.standard.string(forKey: "status.\(def.id)") == "ok"
-            let status: JobStatus = lastSync != nil ? (ok ? .ok : .error) : .unknown
-            var job = SyncJob(id: def.id, name: def.name,
-                              status: status, lastSync: lastSync, errors: 0, isRunning: false,
-                              direction: def.direction)
-            if status == .error {
-                job.errorMessage = UserDefaults.standard.string(forKey: "errorMessage.\(def.id)")
-            }
-            return job
+            return restoredJob(for: def)
         }
         Task { @MainActor [weak self] in self?.startWatchers() }
     }
@@ -556,16 +577,11 @@ final class StatusStore: ObservableObject {
             await MainActor.run { runningJobs[def.id] = rcId }
         } catch {
             let raw = error.localizedDescription
-            let isToken = Self.isTokenError(raw)
-            let msg = friendlyError(raw)
             await MainActor.run {
-                if let i = jobs.firstIndex(where: { $0.id == def.id }) {
-                    jobs[i].isRunning = false
-                    jobs[i].status = isToken ? .tokenError : .error
-                    jobs[i].errorMessage = isToken ? nil : msg
-                }
-                UserDefaults.standard.set(isToken ? "tokenError" : "error", forKey: "status.\(def.id)")
-                if !isToken { UserDefaults.standard.set(msg, forKey: "errorMessage.\(def.id)") }
+                guard let i = jobs.firstIndex(where: { $0.id == def.id }) else { return }
+                jobs[i].isRunning = false
+                if Self.isTokenError(raw) { markTokenError(i) }
+                else { markError(i, message: friendlyError(raw)) }
             }
         }
     }
@@ -648,6 +664,8 @@ final class StatusStore: ObservableObject {
         let rawPct = total > 0 ? Double(done) / Double(total) : nil
         let finishing = total > 0 && done >= total
         jobs[i].isFinishing  = finishing
+        jobs[i].errors       = stats.errors ?? jobs[i].errors
+        if let le = stats.lastError, !le.isEmpty { jobs[i].lastErrorDetail = le }
         jobs[i].progress     = finishing ? nil : rawPct
         jobs[i].currentFile  = finishing ? nil : stats.transferring?.first?.name.map { URL(fileURLWithPath: $0).lastPathComponent }
         if let spd = stats.speed, spd > 0, spd <= Double(Int64.max) { jobs[i].speed = formatBytes(Int64(spd)) + "/s" }
@@ -683,7 +701,7 @@ final class StatusStore: ObservableObject {
             jobs[i].errorMessage  = nil
             // Revert to last persisted status so the icon doesn't stay blue-running.
             let saved = UserDefaults.standard.string(forKey: "status.\(configId)")
-            jobs[i].status = saved == "ok" ? .ok : saved == "paused" ? .paused : .unknown
+            jobs[i].status = saved == "ok" ? .ok : saved == "paused" ? .paused : saved == "tokenError" ? .tokenError : .unknown
             pendingSyncAfterRun.remove(configId)
         }
         runningJobs.removeAll()
@@ -703,24 +721,27 @@ final class StatusStore: ObservableObject {
         jobs[i].isFinishing  = false
         jobs[i].syncStarted  = nil
 
-        let isToken = Self.isTokenError(status.error)
         // Treat nil success as failure — rclone omits the field on some network errors.
-        let hasErr  = !(status.success == true)
-        jobs[i].status       = isToken ? .tokenError : hasErr ? .error : .ok
-        let errorMsg = hasErr ? friendlyError(status.error) : nil
-        jobs[i].errorMessage = errorMsg
-
-        // Only record a successful sync time — a failed attempt must not overwrite
-        // the last-known-good timestamp or the UI will show "just now" after an error.
+        let hasErr = !(status.success == true)
         if !hasErr {
-            jobs[i].lastSync = Date()
-            UserDefaults.standard.set(Date(), forKey: "lastSync.\(configId)")
-        }
-        UserDefaults.standard.set(hasErr ? "error" : "ok", forKey: "status.\(configId)")
-        if let msg = errorMsg {
-            UserDefaults.standard.set(msg, forKey: "errorMessage.\(configId)")
+            markSuccess(i)
+        } else if Self.isTokenError(status.error) {
+            markTokenError(i)
+        } else if Self.isGoogleAuthHiccup(status.error) {
+            // Google returns sporadic 401s mid-sync while the token is perfectly valid.
+            // Treat as transient and only escalate to "Sign-in expired" if a live check fails.
+            markError(i, message: "Google auth hiccup — retrying")
+            let remote = remoteName(for: configId)
+            Task { [weak self] in
+                guard await RcloneRC.verifyGoogleAuth(remote: remote) == false else { return }
+                await MainActor.run {
+                    guard let self, let j = self.jobs.firstIndex(where: { $0.id == configId }),
+                          self.jobs[j].status == .error else { return }
+                    self.markTokenError(j)
+                }
+            }
         } else {
-            UserDefaults.standard.removeObject(forKey: "errorMessage.\(configId)")
+            markError(i, message: friendlyError(status.error, errorCount: jobs[i].errors))
         }
 
         // If a file-watcher change arrived while this job was running, sync again now
@@ -748,6 +769,59 @@ final class StatusStore: ObservableObject {
         }
     }
 
+    // MARK: - Outcome bookkeeping
+
+    @MainActor
+    private func markSuccess(_ i: Int) {
+        let id = jobs[i].id
+        jobs[i].status          = .ok
+        jobs[i].errorMessage    = nil
+        jobs[i].failingSince    = nil
+        jobs[i].lastErrorDetail = nil
+        jobs[i].errors          = 0
+        // Only a successful sync updates the timestamp — a failed attempt must not
+        // overwrite the last-known-good time or the UI shows "just now" after an error.
+        jobs[i].lastSync = Date()
+        clearBackoff(id)
+        UserDefaults.standard.set(Date(), forKey: "lastSync.\(id)")
+        UserDefaults.standard.set("ok", forKey: "status.\(id)")
+        UserDefaults.standard.removeObject(forKey: "errorMessage.\(id)")
+        UserDefaults.standard.removeObject(forKey: "failingSince.\(id)")
+    }
+
+    @MainActor
+    private func markError(_ i: Int, message: String) {
+        let id = jobs[i].id
+        jobs[i].status       = .error
+        jobs[i].errorMessage = message
+        if jobs[i].failingSince == nil {
+            jobs[i].failingSince = Date()
+            UserDefaults.standard.set(Date(), forKey: "failingSince.\(id)")
+        }
+        let n = (consecutiveFailures[id] ?? 0) + 1
+        consecutiveFailures[id] = n
+        nextRetryAt[id] = Date().addingTimeInterval(Self.retryDelay(afterFailures: n))
+        UserDefaults.standard.set("error", forKey: "status.\(id)")
+        UserDefaults.standard.set(message, forKey: "errorMessage.\(id)")
+    }
+
+    @MainActor
+    private func markTokenError(_ i: Int) {
+        let id = jobs[i].id
+        jobs[i].status       = .tokenError
+        jobs[i].errorMessage = nil
+        clearBackoff(id)
+        UserDefaults.standard.set("tokenError", forKey: "status.\(id)")
+        UserDefaults.standard.removeObject(forKey: "errorMessage.\(id)")
+    }
+
+    // 1m, 2m, 4m, 8m, 16m, then 30m.
+    static func retryDelay(afterFailures n: Int) -> TimeInterval {
+        let base: TimeInterval = 60
+        let exp = min(max(n - 1, 0), 10)
+        return min(base * pow(2, Double(exp)), maxRetryDelay)
+    }
+
     @MainActor
     private func addLiveActivity(_ transferred: [RCTransferred], configId: String, jobName: String) {
         let jobDef = jobDefinitions.first(where: { $0.id == configId })
@@ -769,16 +843,24 @@ final class StatusStore: ObservableObject {
 
     // MARK: - Formatting
 
-    private static func isTokenError(_ raw: String?) -> Bool {
+    // Definitive: the refresh token itself is dead. Only these justify "Sign-in expired".
+    static func isTokenError(_ raw: String?) -> Bool {
         guard let raw else { return false }
         let low = raw.lowercased()
         return low.contains("invalid_grant") ||
                low.contains("token has expired") ||
-               low.contains("token expired") ||
-               low.contains("autherror")
+               low.contains("token expired")
     }
 
-    private func friendlyError(_ raw: String?) -> String {
+    // Google's "Error 401 … authError" shows up sporadically mid-sync while the token is
+    // valid (rclone retries and carries on). Not proof of an expired sign-in.
+    static func isGoogleAuthHiccup(_ raw: String?) -> Bool {
+        guard let raw else { return false }
+        let low = raw.lowercased()
+        return low.contains("autherror") || low.contains("error 401")
+    }
+
+    func friendlyError(_ raw: String?, errorCount: Int = 0) -> String {
         guard let raw, !raw.isEmpty else { return "Unknown error" }
         let low = raw.lowercased()
         if Self.isTokenError(raw) {
@@ -786,6 +868,8 @@ final class StatusStore: ObservableObject {
         }
         // rclone safety: stops deleting when it hits IO errors (both files and directories variant)
         if low.contains("not deleting") && low.contains("io error") {
+            if errorCount == 1 { return "1 file failed — nothing deleted" }
+            if errorCount > 1  { return "\(errorCount) files failed — nothing deleted" }
             return "Some files failed — nothing deleted"
         }
         if low.contains("no space left") || low.contains("quota") {
