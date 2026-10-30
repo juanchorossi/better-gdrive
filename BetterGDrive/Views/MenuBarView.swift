@@ -399,7 +399,16 @@ struct ActivityRow: View {
                     Text(item.jobName)
                         .font(.caption2)
                         .foregroundStyle(.secondary)
-                    if let folder = item.parentFolder {
+                    if item.operation == .failed, let reason = item.detail {
+                        Text("·")
+                            .font(.caption2)
+                            .foregroundStyle(.tertiary)
+                        Text(reason)
+                            .font(.caption2)
+                            .foregroundStyle(.red)
+                            .lineLimit(1)
+                            .truncationMode(.tail)
+                    } else if let folder = item.parentFolder {
                         Text("·")
                             .font(.caption2)
                             .foregroundStyle(.tertiary)

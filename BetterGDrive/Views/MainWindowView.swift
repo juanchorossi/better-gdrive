@@ -460,8 +460,9 @@ struct ActivityTableRow: View {
     @State private var hovered = false
 
     private var hasKnownDrivePath: Bool {
-        item.drivePath != nil
-            || store.jobDefinitions.contains(where: { $0.name == item.jobName })
+        item.operation != .failed &&
+            (item.drivePath != nil
+             || store.jobDefinitions.contains(where: { $0.name == item.jobName }))
     }
 
     var body: some View {
@@ -504,6 +505,7 @@ struct ActivityTableRow: View {
                     }
                     .font(.caption)
                     .foregroundStyle(item.operation.color)
+                    .help(item.detail ?? item.operation.description)
                 }
             }
             .frame(width: 90, alignment: .leading)

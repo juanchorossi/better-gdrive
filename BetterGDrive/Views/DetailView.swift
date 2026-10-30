@@ -130,6 +130,7 @@ struct DetailView: View {
             }
             .font(.caption)
             .foregroundStyle(item.operation.color)
+            .help(item.detail ?? item.operation.description)
             .frame(width: 90, alignment: .trailing)
 
             Text(item.relativeTime)

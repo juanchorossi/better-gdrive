@@ -51,7 +51,9 @@ struct SyncJob: Identifiable {
         var parts: [String] = []
         if errors > 0 { parts.append(errors == 1 ? "1 file failed" : "\(errors) files failed") }
         if let d = lastErrorDetail, !d.isEmpty { parts.append(d) }
-        return parts.isEmpty ? nil : parts.joined(separator: "\n")
+        guard !parts.isEmpty else { return nil }
+        parts.append("Details in Activity")
+        return parts.joined(separator: "\n")
     }
 
     var lastSyncDisplay: String? {
@@ -83,14 +85,17 @@ struct ActivityItem: Identifiable, Codable {
     var operation: ActivityOp
 
     var drivePath: String?
+    var detail: String?   // short reason for .failed items
 
-    init(timestamp: Date, jobName: String, filePath: String, operation: ActivityOp, drivePath: String? = nil) {
+    init(timestamp: Date, jobName: String, filePath: String, operation: ActivityOp,
+         drivePath: String? = nil, detail: String? = nil) {
         self.id = UUID()
         self.timestamp = timestamp
         self.jobName = jobName
         self.filePath = filePath
         self.operation = operation
         self.drivePath = drivePath
+        self.detail = detail
     }
 
     var fileName: String { URL(fileURLWithPath: filePath).lastPathComponent }
@@ -135,7 +140,7 @@ struct ActivityItem: Identifiable, Codable {
 }
 
 enum ActivityOp: String, Codable, CustomStringConvertible {
-    case uploaded, updated, deleted, moved, downloaded
+    case uploaded, updated, deleted, moved, downloaded, failed
 
     var description: String {
         switch self {
@@ -144,6 +149,7 @@ enum ActivityOp: String, Codable, CustomStringConvertible {
         case .deleted:    return L.Ops.deleted
         case .moved:      return L.Ops.moved
         case .downloaded: return L.Ops.downloaded
+        case .failed:     return L.Ops.failed
         }
     }
 
@@ -154,6 +160,7 @@ enum ActivityOp: String, Codable, CustomStringConvertible {
         case .deleted:    return "trash"
         case .moved:      return "arrow.right.circle"
         case .downloaded: return "arrow.down.circle"
+        case .failed:     return "xmark.circle"
         }
     }
 
@@ -164,6 +171,7 @@ enum ActivityOp: String, Codable, CustomStringConvertible {
         case .deleted:    return .red
         case .moved:      return .orange
         case .downloaded: return .purple
+        case .failed:     return .red
         }
     }
 }

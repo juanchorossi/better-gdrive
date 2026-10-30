@@ -65,6 +65,9 @@ final class StatusStore: ObservableObject {
     // Exponential backoff for jobs in .error: 1m, 2m, 4m … capped at 30m. In-memory only.
     private var consecutiveFailures: [String: Int] = [:]
     private var nextRetryAt: [String: Date] = [:]
+    // rclone log size when each job started, to read only that run's ERROR lines on failure
+    private var logOffsetAtStart: [String: UInt64] = [:]
+    private static let maxFailedItemsPerRun = 50
     private static let maxRetryDelay: TimeInterval = 30 * 60
 
     private static let watcherDebounceNs: UInt64 = 15_000_000_000  // 15 seconds
@@ -572,6 +575,8 @@ final class StatusStore: ObservableObject {
             }
         }
 
+        let offset = RcloneRC.logOffset()
+        await MainActor.run { logOffsetAtStart[def.id] = offset }
         do {
             let rcId = try await launchSync(def)
             await MainActor.run { runningJobs[def.id] = rcId }
@@ -757,16 +762,32 @@ final class StatusStore: ObservableObject {
         let op: ActivityOp = jobDefinitions.first(where: { $0.id == configId })?.direction == .download
             ? .downloaded : .uploaded
         let jobDrivePath = jobDefinitions.first(where: { $0.id == configId })?.drivePath
-        let pendingItems = transferred
-            .filter { $0.checked != true && ($0.error == nil || $0.error!.isEmpty) }
+        var pendingItems = transferred
+            .filter { $0.checked != true }
             .compactMap { item -> ActivityItem? in
                 let key = "\(configId):\(item.name)"
                 guard !seenTransferKeys.contains(key) else { return nil }
-                return ActivityItem(timestamp: Date(), jobName: jobName, filePath: item.name, operation: op, drivePath: jobDrivePath)
+                return Self.activityItem(for: item, jobName: jobName, op: op, drivePath: jobDrivePath)
             }
         seenTransferKeys = seenTransferKeys.filter { !$0.hasPrefix("\(configId):") }
+
+        // Listing failures (unreadable folders, ...) never reach core/transferred: read them
+        // from the log slice this run wrote, keeping only paths that exist under this job's root.
+        if hasErr, let offset = logOffsetAtStart[configId],
+           let localPath = jobDefinitions.first(where: { $0.id == configId })?.localPath {
+            let root = (localPath as NSString).expandingTildeInPath
+            let listed = RcloneRC.failedListings(since: offset)
+                .filter { FileManager.default.fileExists(atPath: root + "/" + $0.path) }
+                .prefix(Self.maxFailedItemsPerRun)
+                .map { ActivityItem(timestamp: Date(), jobName: jobName, filePath: $0.path,
+                                    operation: .failed, drivePath: jobDrivePath,
+                                    detail: Self.shortReason($0.reason)) }
+            pendingItems.append(contentsOf: listed)
+        }
+        logOffsetAtStart.removeValue(forKey: configId)
+
         if !pendingItems.isEmpty {
-            activity = Array((pendingItems + activity).prefix(500))
+            activity = Array((pendingItems.prefix(Self.maxFailedItemsPerRun * 2) + activity).prefix(500))
             saveActivity()
         }
     }
@@ -830,17 +851,39 @@ final class StatusStore: ObservableObject {
         let op: ActivityOp = jobDef?.direction == .download ? .downloaded : .uploaded
         let jobDrivePath = jobDef?.drivePath
         let newItems = transferred
-            .filter { $0.checked != true && ($0.error == nil || $0.error!.isEmpty) }
+            .filter { $0.checked != true }
             .compactMap { item -> ActivityItem? in
                 let key = "\(configId):\(item.name)"
                 guard !seenTransferKeys.contains(key) else { return nil }
                 seenTransferKeys.insert(key)
-                return ActivityItem(timestamp: Date(), jobName: jobName, filePath: item.name, operation: op, drivePath: jobDrivePath)
+                return Self.activityItem(for: item, jobName: jobName, op: op, drivePath: jobDrivePath)
             }
         if !newItems.isEmpty {
             activity = Array((newItems + activity).prefix(500))
             saveActivity()
         }
+    }
+
+    private static func activityItem(for item: RCTransferred, jobName: String, op: ActivityOp, drivePath: String?) -> ActivityItem {
+        if let err = item.error, !err.isEmpty {
+            return ActivityItem(timestamp: Date(), jobName: jobName, filePath: item.name,
+                                operation: .failed, drivePath: drivePath, detail: shortReason(err))
+        }
+        return ActivityItem(timestamp: Date(), jobName: jobName, filePath: item.name, operation: op, drivePath: drivePath)
+    }
+
+    /// Short, human label for a raw rclone per-file error.
+    static func shortReason(_ raw: String) -> String {
+        let low = raw.lowercased()
+        if low.contains("permission denied")                         { return "No permission" }
+        if low.contains("autherror") || low.contains("error 401")    { return "Google auth hiccup" }
+        if low.contains("no such file or directory")                 { return "File vanished" }
+        if low.contains("quota") || low.contains("no space left")    { return "Drive storage full" }
+        if low.contains("i/o timeout") || low.contains("deadline exceeded") { return "Network timeout" }
+        if low.contains("duplicate")                                 { return "Duplicate in Drive" }
+        let last = raw.components(separatedBy: ": ").last?.trimmingCharacters(in: .whitespaces) ?? raw
+        let capped = String(last.prefix(80))
+        return capped.first.map { String($0).uppercased() + capped.dropFirst() } ?? capped
     }
 
     // MARK: - Formatting

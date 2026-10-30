@@ -282,6 +282,42 @@ final class StatusStoreTests: XCTestCase {
         XCTAssertNil(StatusStore.unreadableFolder(in: nil, localPath: "/a/b"))
     }
 
+    // MARK: - Failed files
+
+    func testParseFailedListingsSkipsSummariesAndDedupes() {
+        let log = """
+        2026/10/30 10:44:36 ERROR : Netskope Bkp/EPDLP/logs: failed to get info about directory entry "/x/a.log": lstat /x/a.log: permission denied
+        2026/10/30 10:44:36 ERROR : Netskope Bkp/EPDLP/logs: failed to get info about directory entry "/x/b.log": lstat /x/b.log: permission denied
+        2026/10/30 10:44:36 NOTICE: ppt/node_modules/zod: Duplicate directory found in destination - ignoring
+        2026/10/30 10:44:36 ERROR : Google drive root 'Ualá': not deleting files as there were IO errors
+        2026/10/30 10:44:36 ERROR : Attempt 1/3 failed with 2 errors and: not deleting files as there were IO errors
+        2026/10/30 10:44:37 ERROR : docs/report.pdf: Failed to copy: googleapi: Error 401: Invalid Credentials, authError
+        """
+        let out = RcloneRC.parseFailedListings(log)
+        XCTAssertEqual(out.map(\.path), ["Netskope Bkp/EPDLP/logs", "docs/report.pdf"])
+        XCTAssertTrue(out[0].reason.hasSuffix("permission denied"))
+    }
+
+    func testShortReason() {
+        XCTAssertEqual(StatusStore.shortReason("lstat /x: permission denied"), "No permission")
+        XCTAssertEqual(StatusStore.shortReason("googleapi: Error 401: bad, authError"), "Google auth hiccup")
+        XCTAssertEqual(StatusStore.shortReason("Failed to copy: open /x: no such file or directory"), "File vanished")
+        XCTAssertEqual(StatusStore.shortReason("Failed to copy: something odd happened"), "Something odd happened")
+    }
+
+    func testFailedActivityOpIsRedAndLabeled() {
+        XCTAssertEqual(ActivityOp.failed.description, "Failed")
+        XCTAssertEqual(ActivityOp.failed.icon, "xmark.circle")
+    }
+
+    func testActivityItemDecodesWithoutDetail() throws {
+        let json = #"[{"id":"2641AE78-DFDF-4110-86D4-B2E83B6C72C7","timestamp":"2026-10-30T00:31:24Z","jobName":"J","filePath":"a/b.txt","operation":"uploaded"}]"#
+        let dec = JSONDecoder(); dec.dateDecodingStrategy = .iso8601
+        let items = try dec.decode([ActivityItem].self, from: Data(json.utf8))
+        XCTAssertEqual(items.count, 1)
+        XCTAssertNil(items[0].detail)
+    }
+
     // MARK: - Retry backoff
 
     func testRetryDelayDoublesAndCaps() {
@@ -311,7 +347,7 @@ final class StatusStoreTests: XCTestCase {
         XCTAssertNil(job.errorTooltip)
         job.errors = 3
         job.lastErrorDetail = "lstat x: permission denied"
-        XCTAssertEqual(job.errorTooltip, "3 files failed\nlstat x: permission denied")
+        XCTAssertEqual(job.errorTooltip, "3 files failed\nlstat x: permission denied\nDetails in Activity")
     }
 
     // MARK: - Helper

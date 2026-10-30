@@ -372,6 +372,54 @@ enum RcloneRC {
         }
     }
 
+    // MARK: - Log access
+
+    private static var logURL: URL {
+        FileManager.default.homeDirectoryForCurrentUser
+            .appendingPathComponent("Library/Logs/bettergdrive-rclone.log")
+    }
+
+    /// Current size of the rclone log; capture before a job starts to read only its lines later.
+    static func logOffset() -> UInt64 {
+        guard let fh = try? FileHandle(forReadingFrom: logURL) else { return 0 }
+        defer { fh.closeFile() }
+        return fh.seekToEndOfFile()
+    }
+
+    /// Per-path ERROR lines written since `offset` (listing failures, unreadable folders, ...).
+    static func failedListings(since offset: UInt64) -> [(path: String, reason: String)] {
+        guard let fh = try? FileHandle(forReadingFrom: logURL) else { return [] }
+        defer { fh.closeFile() }
+        let end = fh.seekToEndOfFile()
+        guard end > offset else { return [] }
+        fh.seek(toFileOffset: offset)
+        let data = fh.readDataToEndOfFile()
+        guard let text = String(data: data, encoding: .utf8) else { return [] }
+        return parseFailedListings(text)
+    }
+
+    /// Pure parser for log text. Lines look like
+    ///   2026/10/30 10:44:36 ERROR : Netskope Bkp/EPDLP/logs: failed to get info ...: permission denied
+    /// Root-level summaries and retry banners are skipped.
+    static func parseFailedListings(_ text: String) -> [(path: String, reason: String)] {
+        var out: [(String, String)] = []
+        var seen = Set<String>()
+        for line in text.split(separator: "\n", omittingEmptySubsequences: true) {
+            guard let r = line.range(of: "ERROR : ") else { continue }
+            let rest = line[r.upperBound...]
+            guard let sep = rest.range(of: ": ") else { continue }
+            let path = String(rest[..<sep.lowerBound])
+            let reason = String(rest[sep.upperBound...])
+            if path.isEmpty || path.hasPrefix("Google drive root") || path.hasPrefix("Local file system")
+                || path.hasPrefix("Attempt ") || path.hasPrefix("Encrypted drive") || path.contains("not deleting") {
+                continue
+            }
+            guard seen.insert(path).inserted else { continue }
+            out.append((path, reason))
+        }
+        return out
+    }
+
     static func stopJob(_ id: Int) async {
         _ = try? await post("job/stop", body: ["jobid": id]) as RCEmpty
     }
