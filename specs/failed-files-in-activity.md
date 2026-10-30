@@ -15,7 +15,9 @@ When a sync fails, the job row shows only the last error. If several files or fo
 - Transfer failures come from rclone's `core/transferred` (items with a non-empty `error`), live during the run and at the end.
 - Listing failures (e.g. `lstat … permission denied` on a folder) never reach `core/transferred`. They are read from the rclone log lines written during the job (`ERROR : <path>: <reason>`), attributed to the job only if `<localPath>/<path>` exists on disk. Root-level summary lines (`Google drive root …: not deleting …`, `Attempt N/3 failed`) are skipped.
 - At most 50 failed rows are added per run so a broken folder tree cannot flush the whole list.
-- The same path failing again in a later run adds a new row (it is a new event).
+- A file that fails and then succeeds on rclone's retry shows both rows: the failure and the upload. rclone reports one `core/transferred` entry per attempt.
+- The same path failing again with the same reason does **not** add a new row while the newest row for that path is already that failure. A later success resets this, so the next failure shows again.
+- Failed rows show the full relative path as title (the folder is the point), with path and reason in the tooltip.
 - Failed rows have no "Open in Google Drive" link.
 - Old `activity.json` entries without the new field decode unchanged.
 

@@ -392,9 +392,10 @@ struct ActivityRow: View {
                 .frame(width: 24)
 
             VStack(alignment: .leading, spacing: 2) {
-                Text(item.fileName)
+                Text(item.displayName)
                     .lineLimit(1)
                     .truncationMode(.middle)
+                    .help(item.failureTooltip ?? item.filePath)
                 HStack(spacing: 4) {
                     Text(item.jobName)
                         .font(.caption2)

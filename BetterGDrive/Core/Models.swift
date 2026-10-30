@@ -100,6 +100,15 @@ struct ActivityItem: Identifiable, Codable {
 
     var fileName: String { URL(fileURLWithPath: filePath).lastPathComponent }
 
+    /// Row title: failures show the full path (the folder is the point), others the file name.
+    var displayName: String { operation == .failed ? filePath : fileName }
+
+    /// Tooltip for failed rows: path plus reason.
+    var failureTooltip: String? {
+        guard operation == .failed else { return nil }
+        return [filePath, detail].compactMap { $0 }.joined(separator: "\n")
+    }
+
     var parentFolder: String? {
         let url = URL(fileURLWithPath: filePath)
         let parent = url.deletingLastPathComponent().path

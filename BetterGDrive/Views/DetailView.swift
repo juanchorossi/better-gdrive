@@ -119,9 +119,10 @@ struct DetailView: View {
                 .foregroundStyle(.secondary)
                 .frame(width: 18)
 
-            Text(item.fileName)
+            Text(item.displayName)
                 .lineLimit(1)
                 .truncationMode(.middle)
+                .help(item.failureTooltip ?? item.filePath)
                 .frame(maxWidth: .infinity, alignment: .leading)
 
             HStack(spacing: 3) {
@@ -130,7 +131,7 @@ struct DetailView: View {
             }
             .font(.caption)
             .foregroundStyle(item.operation.color)
-            .help(item.detail ?? item.operation.description)
+            .help(item.failureTooltip ?? item.operation.description)
             .frame(width: 90, alignment: .trailing)
 
             Text(item.relativeTime)

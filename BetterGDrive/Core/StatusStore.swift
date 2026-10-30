@@ -765,9 +765,9 @@ final class StatusStore: ObservableObject {
         var pendingItems = transferred
             .filter { $0.checked != true }
             .compactMap { item -> ActivityItem? in
-                let key = "\(configId):\(item.name)"
-                guard !seenTransferKeys.contains(key) else { return nil }
-                return Self.activityItem(for: item, jobName: jobName, op: op, drivePath: jobDrivePath)
+                guard !seenTransferKeys.contains(Self.transferKey(configId: configId, item: item)) else { return nil }
+                let a = Self.activityItem(for: item, jobName: jobName, op: op, drivePath: jobDrivePath)
+                return Self.isRepeatedFailure(a, in: activity) ? nil : a
             }
         seenTransferKeys = seenTransferKeys.filter { !$0.hasPrefix("\(configId):") }
 
@@ -782,6 +782,7 @@ final class StatusStore: ObservableObject {
                 .map { ActivityItem(timestamp: Date(), jobName: jobName, filePath: $0.path,
                                     operation: .failed, drivePath: jobDrivePath,
                                     detail: Self.shortReason($0.reason)) }
+                .filter { !Self.isRepeatedFailure($0, in: activity) }
             pendingItems.append(contentsOf: listed)
         }
         logOffsetAtStart.removeValue(forKey: configId)
@@ -853,15 +854,32 @@ final class StatusStore: ObservableObject {
         let newItems = transferred
             .filter { $0.checked != true }
             .compactMap { item -> ActivityItem? in
-                let key = "\(configId):\(item.name)"
+                let key = Self.transferKey(configId: configId, item: item)
                 guard !seenTransferKeys.contains(key) else { return nil }
                 seenTransferKeys.insert(key)
-                return Self.activityItem(for: item, jobName: jobName, op: op, drivePath: jobDrivePath)
+                let a = Self.activityItem(for: item, jobName: jobName, op: op, drivePath: jobDrivePath)
+                return Self.isRepeatedFailure(a, in: activity) ? nil : a
             }
         if !newItems.isEmpty {
             activity = Array((newItems + activity).prefix(500))
             saveActivity()
         }
+    }
+
+    /// rclone appends one core/transferred entry per attempt, so a file that fails and then
+    /// succeeds on retry appears twice. Key on outcome too, so the later success gets through.
+    static func transferKey(configId: String, item: RCTransferred) -> String {
+        let failed = !(item.error ?? "").isEmpty
+        return "\(configId):\(item.name):\(failed ? "failed" : "ok")"
+    }
+
+    /// True when the newest Activity row for the same job+path is already this same failure.
+    /// Keeps a folder that fails every retry from flooding the list; a later success resets it.
+    static func isRepeatedFailure(_ item: ActivityItem, in activity: [ActivityItem]) -> Bool {
+        guard item.operation == .failed else { return false }
+        guard let newest = activity.first(where: { $0.jobName == item.jobName && $0.filePath == item.filePath })
+        else { return false }
+        return newest.operation == .failed && newest.detail == item.detail
     }
 
     private static func activityItem(for item: RCTransferred, jobName: String, op: ActivityOp, drivePath: String?) -> ActivityItem {

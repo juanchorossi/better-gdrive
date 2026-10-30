@@ -298,6 +298,38 @@ final class StatusStoreTests: XCTestCase {
         XCTAssertTrue(out[0].reason.hasSuffix("permission denied"))
     }
 
+    func testRetriedFileKeysDifferByOutcome() {
+        let failed = RCTransferred(name: "a/b.txt", size: 1, checked: false, error: "Failed to copy: authError", jobid: 1)
+        let ok     = RCTransferred(name: "a/b.txt", size: 1, checked: false, error: nil, jobid: 1)
+        XCTAssertNotEqual(StatusStore.transferKey(configId: "j", item: failed),
+                          StatusStore.transferKey(configId: "j", item: ok))
+        XCTAssertEqual(StatusStore.transferKey(configId: "j", item: ok),
+                       StatusStore.transferKey(configId: "j", item: RCTransferred(name: "a/b.txt", size: 2, checked: false, error: "", jobid: 2)))
+    }
+
+    func testRepeatedFailureIsSkippedUntilASuccess() {
+        let fail = ActivityItem(timestamp: Date(), jobName: "Ualá", filePath: "Bkp/logs", operation: .failed, detail: "No permission")
+        XCTAssertFalse(StatusStore.isRepeatedFailure(fail, in: []))
+        XCTAssertTrue(StatusStore.isRepeatedFailure(fail, in: [fail]))
+        // Different reason → new row
+        let other = ActivityItem(timestamp: Date(), jobName: "Ualá", filePath: "Bkp/logs", operation: .failed, detail: "Network timeout")
+        XCTAssertFalse(StatusStore.isRepeatedFailure(other, in: [fail]))
+        // A newer success for the same path resets it
+        let ok = ActivityItem(timestamp: Date(), jobName: "Ualá", filePath: "Bkp/logs", operation: .uploaded)
+        XCTAssertFalse(StatusStore.isRepeatedFailure(fail, in: [ok, fail]))
+        // Successes are never deduped here
+        XCTAssertFalse(StatusStore.isRepeatedFailure(ok, in: [ok]))
+    }
+
+    func testFailedRowShowsFullPath() {
+        let fail = ActivityItem(timestamp: Date(), jobName: "Ualá", filePath: "Bkp/EPDLP/logs", operation: .failed, detail: "No permission")
+        XCTAssertEqual(fail.displayName, "Bkp/EPDLP/logs")
+        XCTAssertEqual(fail.failureTooltip, "Bkp/EPDLP/logs\nNo permission")
+        let ok = ActivityItem(timestamp: Date(), jobName: "Ualá", filePath: "Bkp/a.txt", operation: .uploaded)
+        XCTAssertEqual(ok.displayName, "a.txt")
+        XCTAssertNil(ok.failureTooltip)
+    }
+
     func testShortReason() {
         XCTAssertEqual(StatusStore.shortReason("lstat /x: permission denied"), "No permission")
         XCTAssertEqual(StatusStore.shortReason("googleapi: Error 401: bad, authError"), "Google auth hiccup")
