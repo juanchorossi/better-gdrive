@@ -30,8 +30,8 @@ targets:
       base:
         PRODUCT_BUNDLE_IDENTIFIER: com.juanrossi.bettergdrive
         PRODUCT_NAME: "Better GDrive"
-        MARKETING_VERSION: "1.2.1"
-        CURRENT_PROJECT_VERSION: "2"
+        MARKETING_VERSION: "1.2.2"
+        CURRENT_PROJECT_VERSION: "3"
         INFOPLIST_FILE: BetterGDrive/App/Info.plist
         CODE_SIGN_ENTITLEMENTS: BetterGDrive/App/BetterGDrive.entitlements
         ENABLE_HARDENED_RUNTIME: YES
