@@ -741,7 +741,9 @@ final class StatusStore: ObservableObject {
                 }
             }
         } else {
-            markError(i, message: friendlyError(status.error, errorCount: jobs[i].errors))
+            let localPath = jobDefinitions.first(where: { $0.id == configId })?.localPath
+            markError(i, message: friendlyError(status.error, errorCount: jobs[i].errors,
+                                                lastDetail: jobs[i].lastErrorDetail, localPath: localPath))
         }
 
         // If a file-watcher change arrived while this job was running, sync again now
@@ -860,7 +862,8 @@ final class StatusStore: ObservableObject {
         return low.contains("autherror") || low.contains("error 401")
     }
 
-    func friendlyError(_ raw: String?, errorCount: Int = 0) -> String {
+    func friendlyError(_ raw: String?, errorCount: Int = 0,
+                       lastDetail: String? = nil, localPath: String? = nil) -> String {
         guard let raw, !raw.isEmpty else { return "Unknown error" }
         let low = raw.lowercased()
         if Self.isTokenError(raw) {
@@ -868,6 +871,10 @@ final class StatusStore: ObservableObject {
         }
         // rclone safety: stops deleting when it hits IO errors (both files and directories variant)
         if low.contains("not deleting") && low.contains("io error") {
+            // Name the actual cause when rclone told us (e.g. a root-owned folder in the backup).
+            if let cause = Self.unreadableFolder(in: lastDetail, localPath: localPath) {
+                return "Can't read \"\(cause)\" — no permission"
+            }
             if errorCount == 1 { return "1 file failed — nothing deleted" }
             if errorCount > 1  { return "\(errorCount) files failed — nothing deleted" }
             return "Some files failed — nothing deleted"
@@ -901,6 +908,23 @@ final class StatusStore: ObservableObject {
         let result = trimmed.isEmpty ? raw : trimmed
         let capped = String(result.prefix(80))
         return capped.first.map { String($0).uppercased() + capped.dropFirst() } ?? capped
+    }
+
+    // From rclone's lastError like
+    //   failed to get info about directory entry "/Users/x/Documents/Ualá/Backup/logs/a.log": lstat …: permission denied
+    // returns "Backup/logs" (the folder, relative to the job root). nil if it's not a permission problem.
+    static func unreadableFolder(in detail: String?, localPath: String?) -> String? {
+        guard let detail, detail.lowercased().contains("permission denied") else { return nil }
+        // First quoted absolute path in the message
+        let parts = detail.components(separatedBy: "\"")
+        guard parts.count >= 3, let abs = parts.dropFirst().first(where: { $0.hasPrefix("/") }) else { return nil }
+        var rel = abs
+        if let localPath {
+            let root = (localPath as NSString).expandingTildeInPath
+            if abs.hasPrefix(root + "/") { rel = String(abs.dropFirst(root.count + 1)) }
+        }
+        let folder = (rel as NSString).deletingLastPathComponent
+        return folder.isEmpty ? rel : folder
     }
 
     private static let countFormatter: NumberFormatter = {

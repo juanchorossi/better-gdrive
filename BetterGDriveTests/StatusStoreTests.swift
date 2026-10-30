@@ -260,6 +260,24 @@ final class StatusStoreTests: XCTestCase {
         XCTAssertEqual(store.friendlyError(raw, errorCount: 7), "7 files failed — nothing deleted")
     }
 
+    func testPermissionDeniedNamesTheFolder() {
+        let store = StatusStore()
+        let raw = "not deleting files as there were IO errors"
+        let detail = "failed to get info about directory entry \"/Users/me/Documents/Ualá/Netskope Bkp/EPDLP/logs/epdlp.err.log\": lstat /Users/me/Documents/Ualá/Netskope Bkp/EPDLP/logs/epdlp.err.log: permission denied"
+        XCTAssertEqual(store.friendlyError(raw, errorCount: 2, lastDetail: detail, localPath: "/Users/me/Documents/Ualá"),
+                       "Can't read \"Netskope Bkp/EPDLP/logs\" — no permission")
+        // Unrelated detail keeps the count message
+        XCTAssertEqual(store.friendlyError(raw, errorCount: 2, lastDetail: "googleapi: Error 500", localPath: "/Users/me/Documents/Ualá"),
+                       "2 files failed — nothing deleted")
+    }
+
+    func testUnreadableFolderIsRelativeToJobRoot() {
+        XCTAssertEqual(StatusStore.unreadableFolder(in: "x \"/a/b/c/d.txt\": permission denied", localPath: "/a/b"), "c")
+        XCTAssertEqual(StatusStore.unreadableFolder(in: "x \"/a/b/c/d.txt\": permission denied", localPath: nil), "/a/b/c")
+        XCTAssertNil(StatusStore.unreadableFolder(in: "x \"/a/b/c\": no such file", localPath: "/a/b"))
+        XCTAssertNil(StatusStore.unreadableFolder(in: nil, localPath: "/a/b"))
+    }
+
     // MARK: - Retry backoff
 
     func testRetryDelayDoublesAndCaps() {

@@ -8,6 +8,8 @@ A folder that fails permanently is retried every 60 seconds forever, and a trans
 ### Golden path
 1. A sync ends in error. The job row shows a short message with a count when rclone gives one:
    `3 files failed — nothing deleted`. Hovering the row shows the last failed path and rclone's reason.
+   When rclone's last error is a local permission problem, the row names the folder instead:
+   `Can't read "Netskope Bkp/EPDLP/logs" — no permission` (path relative to the job's local root).
 2. The job is retried automatically with exponential backoff: 1m, 2m, 4m, 8m, 16m, then every 30m. Pressing ▶ retries immediately and resets the backoff.
 3. If the job keeps failing, the row appends how long it has been failing: `… · failing for 12 days`. This survives app restarts.
 4. The first successful sync clears the message, the backoff and the "failing for" counter.
