@@ -76,10 +76,16 @@ Esperar unos segundos y verificar las tres cosas. Si alguna falla, parar.
 
 ```bash
 sleep 8
-/usr/libexec/PlistBuddy -c "Print :CFBundleShortVersionString" "/Applications/Better GDrive.app/Contents/Info.plist"   # == $NEW
+APP="/Applications/Better GDrive.app"
+/usr/libexec/PlistBuddy -c "Print :CFBundleShortVersionString" "$APP/Contents/Info.plist"   # == $NEW
+test -x "$APP/Contents/Resources/rclone" && echo rclone-bundled      # el DMG tiene que ser autosuficiente
 pgrep -x "Better GDrive" >/dev/null && echo app-running
 lsof -nP -iTCP:5572 -sTCP:LISTEN | grep -q rclone && echo daemon-listening
 ```
+
+Si falta `rclone-bundled`, el build no es publicable: hasta 1.2.1 el DMG salía
+sin rclone (1,8 MB) y solo andaba en Macs con rclone de Homebrew. El DMG
+correcto pesa alrededor de 35 MB.
 
 Si las tres pasan, seguir sin preguntar. Si alguna falla, parar y pedirle al
 usuario que mire el app en el menú bar antes de publicar nada.

@@ -20,6 +20,7 @@
 		8B2137163474F88DCDD20A32 /* ConfigStoreTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8D8B3E880DA31C8F15EF933D /* ConfigStoreTests.swift */; };
 		A9228EDFC95FE7D6BC2B7C67 /* Models.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7425894A7A9769EFCDE23162 /* Models.swift */; };
 		B49ACDC016BE2ADC279238F5 /* ConfigStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = D3AA1B7AA93880FC024CDC0F /* ConfigStore.swift */; };
+		BA024EAF6B5E2CCC7D99C882 /* rclone in Resources */ = {isa = PBXBuildFile; fileRef = 536CC665C20BB7F9B25A7E97 /* rclone */; };
 		BC17E486ECECCF23348963A0 /* DetailView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 30DC55FCACF65E2433641B33 /* DetailView.swift */; };
 		C5C5FFFFED5FD59A17A743E0 /* StatusStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4E88A700D56228C2C81F415E /* StatusStore.swift */; };
 		FE1B0FE1AF34803A85DAE07D /* MainWindowView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 646FFEECE02608E85FAC693C /* MainWindowView.swift */; };
@@ -223,6 +224,7 @@
 			buildActionMask = 2147483647;
 			files = (
 				5B7E47581B9AC318ED86EF02 /* Assets.xcassets in Resources */,
+				BA024EAF6B5E2CCC7D99C882 /* rclone in Resources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};

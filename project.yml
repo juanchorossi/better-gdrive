@@ -21,9 +21,11 @@ targets:
       - path: BetterGDrive/App
       - path: BetterGDrive/Core
       - path: BetterGDrive/Views
+      # Everything here (including the extension-less rclone binary) must land in
+      # Copy Bundle Resources. Without buildPhase xcodegen skipped rclone and the
+      # shipped app silently depended on a Homebrew rclone.
       - path: BetterGDrive/Resources
-    resources:
-      - path: BetterGDrive/Resources
+        buildPhase: resources
     settings:
       base:
         PRODUCT_BUNDLE_IDENTIFIER: com.juanrossi.bettergdrive
