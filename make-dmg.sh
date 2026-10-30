@@ -42,15 +42,20 @@ mkdir -p "$STAGING"
 cp -R "$APP_PATH" "$STAGING/"
 ln -s /Applications "$STAGING/Applications"
 
-# DMG
+# DMG. hdiutil's automatic size estimate is too tight once the bundle carries the
+# ~88 MB rclone binary and fails with a bogus "No space left on device", so size
+# the image explicitly: staging size + 50% headroom + 20 MB.
 rm -f "$OUTPUT"
-echo "  Creating DMG…"
+STAGING_MB=$(du -sm "$STAGING" | cut -f1)
+IMAGE_MB=$(( STAGING_MB + STAGING_MB / 2 + 20 ))
+echo "  Creating DMG (${IMAGE_MB} MB image)…"
 hdiutil create \
   -volname "$APP_NAME" \
   -srcfolder "$STAGING" \
   -ov \
   -format UDZO \
   -imagekey zlib-level=9 \
+  -size "${IMAGE_MB}m" \
   "$OUTPUT" > /dev/null
 
 rm -rf "$STAGING"
