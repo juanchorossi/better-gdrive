@@ -152,10 +152,17 @@ release marcado como pre-release rompe el aviso de actualización.
 ## 9. Verificar
 
 ```bash
-gh release view "v$NEW" --json tagName,isLatest,assets -q '.tagName, .isLatest, .assets[].browserDownloadUrl'
+gh release list --limit 3        # v$NEW tiene que figurar como "Latest"
+gh api repos/juanchorossi/better-gdrive/releases/latest \
+  -q '"\(.tag_name) prerelease=\(.prerelease)", (.assets[] | "\(.name) \(.size/1048576|floor) MB")'
 ```
 
-Tiene que ser `isLatest: true` y el asset `BetterGDrive-$NEW.dmg`.
+Es exactamente lo que consulta el chequeo de updates del app. Tiene que
+devolver `v$NEW`, `prerelease=false` y el asset `BetterGDrive-$NEW.dmg` de
+decenas de MB.
+
+Nota: `gh release view --json` no tiene campo `isLatest`; por eso se usa
+`release list` y la API.
 
 ## Reporte final
 
