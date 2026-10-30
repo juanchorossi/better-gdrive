@@ -448,6 +448,7 @@ final class StatusStore: ObservableObject {
                     self.jobs[i].speed     = nil
                     self.jobs[i].eta       = nil
                     self.jobs[i].filesInfo = nil
+                    self.jobs[i].transferred = nil
                 }
                 UserDefaults.standard.set("paused", forKey: "status.\(configId)")
             }
@@ -675,7 +676,8 @@ final class StatusStore: ObservableObject {
         jobs[i].currentFile  = finishing ? nil : stats.transferring?.first?.name.map { URL(fileURLWithPath: $0).lastPathComponent }
         if let spd = stats.speed, spd > 0, spd <= Double(Int64.max) { jobs[i].speed = formatBytes(Int64(spd)) + "/s" }
         if !finishing, let eta = stats.transferring?.first?.eta { jobs[i].eta = formatETA(eta) } else { jobs[i].eta = nil }
-        if total > 0 { jobs[i].transferred = "\(formatBytes(done)) / \(formatBytes(total))" }
+        // Must be cleared when total is 0 or the previous run's "X / X MiB" lingers under "Scanning…".
+        jobs[i].transferred = total > 0 ? "\(formatBytes(done)) / \(formatBytes(total))" : nil
         if let t = stats.transfers, let tt = stats.totalTransfers, tt > 0 {
             jobs[i].filesInfo = "\(t) / \(tt) files"
         } else if let t = stats.transfers, t > 0 {
@@ -701,6 +703,7 @@ final class StatusStore: ObservableObject {
             jobs[i].speed       = nil
             jobs[i].eta         = nil
             jobs[i].filesInfo   = nil
+            jobs[i].transferred = nil
             jobs[i].isFinishing   = false
             jobs[i].syncStarted   = nil
             jobs[i].errorMessage  = nil
@@ -723,6 +726,7 @@ final class StatusStore: ObservableObject {
         jobs[i].speed        = nil
         jobs[i].eta          = nil
         jobs[i].filesInfo    = nil
+        jobs[i].transferred  = nil
         jobs[i].isFinishing  = false
         jobs[i].syncStarted  = nil
 
