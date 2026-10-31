@@ -145,7 +145,7 @@ struct MenuBarView: View {
 
     private var footer: some View {
         HStack {
-            Text(L.General.appName)
+            Text("\(L.General.appName) \(Bundle.main.shortVersion)")
                 .font(.caption)
                 .foregroundStyle(.tertiary)
             if let update = store.availableUpdate {

@@ -2,6 +2,13 @@ import Foundation
 import SwiftUI
 import UniformTypeIdentifiers
 
+extension Bundle {
+    /// Marketing version from Info.plist (e.g. "1.2.4").
+    var shortVersion: String {
+        infoDictionary?["CFBundleShortVersionString"] as? String ?? "0"
+    }
+}
+
 enum SyncDirection: String, Codable {
     case upload   // local → Drive (default)
     case download // Drive → local

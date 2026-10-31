@@ -1027,7 +1027,7 @@ final class StatusStore: ObservableObject {
               let urlStr = json["html_url"] as? String,
               let releaseURL = URL(string: urlStr) else { return nil }
         let remote = tag.hasPrefix("v") ? String(tag.dropFirst()) : tag
-        let current = Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String ?? "0"
+        let current = Bundle.main.shortVersion
         guard isNewerVersion(remote, than: current) else { return nil }
         return AppUpdate(version: remote, releaseURL: releaseURL)
     }
