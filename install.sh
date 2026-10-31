@@ -5,16 +5,10 @@ SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 APP_NAME="Better GDrive"
 SCHEME="BetterGDrive"
 BUILD_DIR="$SCRIPT_DIR/.build"
+PRODUCTS="$BUILD_DIR/Build/Products/Debug"
 
 echo "▸ Better GDrive — installer"
 echo ""
-
-# Kill any running instance
-if pgrep -x "$APP_NAME" > /dev/null 2>&1; then
-  echo "  Stopping running instance..."
-  pkill -x "$APP_NAME" || true
-  sleep 1
-fi
 
 # Rclone binary check
 RCLONE_PATH="$SCRIPT_DIR/BetterGDrive/Resources/rclone"
@@ -31,26 +25,47 @@ echo "  Regenerating Xcode project..."
 (cd "$SCRIPT_DIR" && xcodegen generate --quiet)
 echo "  ✓ xcodegen done"
 
-# Build
+# Build. Signing comes from project.yml (the source of truth), not from overrides here.
+# Drop any previous bundle first: otherwise a failed build leaves the old one in place
+# and the "app bundle found" check below would install stale code as if it had succeeded.
+rm -rf "$PRODUCTS"/*.app
 echo "  Building $APP_NAME (Debug)..."
+BUILD_LOG="$(mktemp -t bettergdrive-build)"
+set +e
 xcodebuild \
   -project "$SCRIPT_DIR/BetterGDrive.xcodeproj" \
   -scheme "$SCHEME" \
   -configuration Debug \
   -derivedDataPath "$BUILD_DIR" \
-  CODE_SIGN_STYLE=Automatic \
-  CODE_SIGN_IDENTITY="Apple Development" \
-  DEVELOPMENT_TEAM=834JA84DX2 \
-  build 2>&1 | grep -E "^(error:|warning:|Build succeeded|Build FAILED|✗)" || true
+  build > "$BUILD_LOG" 2>&1
+BUILD_STATUS=$?
+set -e
+# Compiler diagnostics look like "path:line:col: error: …"; xcodebuild ends with "** BUILD FAILED **".
+grep -E "(^|: )(error|warning): |\*\* BUILD (FAILED|SUCCEEDED) \*\*" "$BUILD_LOG" | sed 's/^/    /' || true
+if [[ $BUILD_STATUS -ne 0 ]]; then
+  echo "  ✗ Build failed (xcodebuild exit $BUILD_STATUS). Full log: $BUILD_LOG"
+  exit 1
+fi
+rm -f "$BUILD_LOG"
 
 # Locate built app
-BUILT_APP=$(find "$BUILD_DIR/Build/Products/Debug" -name "*.app" -maxdepth 1 | head -1)
+BUILT_APP=""
+if [[ -d "$PRODUCTS" ]]; then
+  BUILT_APP="$(find "$PRODUCTS" -maxdepth 1 -name "*.app" -print -quit)"
+fi
 if [[ -z "$BUILT_APP" ]]; then
-  echo "  ✗ Build failed — app bundle not found."
-  echo "    Run with verbose output: xcodebuild -scheme BetterGDrive -configuration Debug build"
+  echo "  ✗ Build reported success but no app bundle in $PRODUCTS"
   exit 1
 fi
 echo "  ✓ Build succeeded"
+
+# Stop the running instance only now, with a good build in hand: a failed build must not
+# leave the user without the app (and without sync) that was working before.
+if pgrep -x "$APP_NAME" > /dev/null 2>&1; then
+  echo "  Stopping running instance..."
+  pkill -x "$APP_NAME" || true
+  sleep 1
+fi
 
 # Install to /Applications
 DEST="/Applications/$APP_NAME.app"
