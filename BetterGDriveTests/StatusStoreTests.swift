@@ -195,14 +195,15 @@ final class StatusStoreTests: XCTestCase {
         XCTAssertTrue(store.headerTitle.hasPrefix("Synced "), "headerTitle should start with 'Synced '")
     }
 
-    // Oldest lastSync drives the title when multiple jobs exist
-    func testHeaderTitleUsesOldestSyncAcrossJobs() {
+    // Most recent lastSync drives the title when multiple jobs exist: a folder that
+    // hasn't changed in days must not make the header say the app synced days ago.
+    func testHeaderTitleUsesMostRecentSyncAcrossJobs() {
         let store = StatusStore()
         store.jobs = [
-            makeJob(id: "a", lastSync: Date(timeIntervalSinceNow: -300)),   // 5 min
-            makeJob(id: "b", lastSync: Date(timeIntervalSinceNow: -7200)),  // 2 h (oldest)
+            makeJob(id: "a", lastSync: Date(timeIntervalSinceNow: -300)),      // 5 min (latest)
+            makeJob(id: "b", lastSync: Date(timeIntervalSinceNow: -432_000)),  // 5 days
         ]
-        XCTAssertEqual(store.headerTitle, "Synced 2h ago")
+        XCTAssertEqual(store.headerTitle, "Synced 5m ago")
     }
 
     // MARK: - Aggregate predicates

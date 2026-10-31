@@ -93,8 +93,11 @@ final class StatusStore: ObservableObject {
         }
         if hasAnyPaused                      { return "Paused" }
         if isHotspotPaused                   { return "Paused · Hotspot" }
-        if let oldest = jobs.compactMap(\.lastSync).min() {
-            let diff = -oldest.timeIntervalSinceNow
+        // Most recent run across folders: the header answers "when did the app last
+        // sync?". The oldest folder's time read as a lie when another folder had just
+        // synced; per-folder times live in the rows.
+        if let latest = jobs.compactMap(\.lastSync).max() {
+            let diff = -latest.timeIntervalSinceNow
             if diff < 60    { return "Synced just now" }
             if diff < 3600  { return "Synced \(Int(diff/60))m ago" }
             if diff < 86400 { return "Synced \(Int(diff/3600))h ago" }
