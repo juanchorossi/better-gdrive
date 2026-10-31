@@ -355,9 +355,10 @@ struct JobRow: View {
 
     @ViewBuilder
     private var progressSection: some View {
-        if job.isFinishing {
-            ProgressView().progressViewStyle(.linear).tint(.blue).padding(.leading, 24)
-        } else if let p = job.progress {
+        // Finishing = transfers done, rclone is setting mtimes / deleting. Show a full bar
+        // rather than the indeterminate linear style, which on macOS expands to fill the
+        // row's height and leaves a big empty band above the byte count.
+        if let p = job.isFinishing ? 1.0 : job.progress {
             HStack(spacing: 6) {
                 ProgressView(value: p).tint(.blue)
                 Text("\(Int(p * 100))%")

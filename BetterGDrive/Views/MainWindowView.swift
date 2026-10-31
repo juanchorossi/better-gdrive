@@ -334,9 +334,8 @@ struct MainJobRow: View {
     @ViewBuilder
     private var progressSection: some View {
         VStack(alignment: .leading, spacing: 4) {
-            if job.isFinishing {
-                ProgressView().progressViewStyle(.linear).tint(.blue).padding(.leading, 44)
-            } else if let p = job.progress {
+            // Full bar while finishing: the indeterminate linear style stretches vertically on macOS.
+            if let p = job.isFinishing ? 1.0 : job.progress {
                 ProgressView(value: p).tint(.blue).padding(.leading, 44)
             }
             if let file = job.currentFile {
