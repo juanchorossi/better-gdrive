@@ -35,6 +35,7 @@ enum L {
         static let errorDetail    = "Check the job with errors"
         static let lastSync       = "Last sync"
         static let noHistory      = "No history"
+        static let checkingDeletions = "Checking what would be deleted…"
     }
 
     enum Activity {

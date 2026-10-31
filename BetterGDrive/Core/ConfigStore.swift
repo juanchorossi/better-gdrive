@@ -127,19 +127,35 @@ final class ConfigStore: ObservableObject {
     }()
 
     init() {
-        if let data = try? Data(contentsOf: Self.configURL),
-           let parsed = try? JSONDecoder().decode(SyncConfig.self, from: data) {
-            config = parsed
+        if let data = try? Data(contentsOf: Self.configURL) {
+            if let parsed = try? JSONDecoder().decode(SyncConfig.self, from: data) {
+                config = parsed
+            } else {
+                // Unreadable config: keep the bytes so the user can recover their jobs
+                // instead of silently starting empty and overwriting it on the next save.
+                Self.quarantineCorruptConfig()
+                config = SyncConfig(bwlimit: "09:00,1M 23:00,off", jobs: [])
+            }
         } else {
             config = SyncConfig(bwlimit: "09:00,1M 23:00,off", jobs: [])
         }
+    }
+
+    static func corruptBackupURL(for url: URL, at date: Date = Date()) -> URL {
+        let f = DateFormatter(); f.dateFormat = "yyyyMMdd-HHmmss"
+        return url.appendingPathExtension("corrupt-\(f.string(from: date))")
+    }
+
+    private static func quarantineCorruptConfig() {
+        try? FileManager.default.moveItem(at: configURL, to: corruptBackupURL(for: configURL))
     }
 
     func save() {
         let encoder = JSONEncoder()
         encoder.outputFormatting = [.prettyPrinted, .sortedKeys]
         if let data = try? encoder.encode(config) {
-            try? data.write(to: Self.configURL)
+            // Atomic: a crash mid-write must not leave a truncated file that decodes as "no jobs".
+            try? data.write(to: Self.configURL, options: .atomic)
         }
     }
 

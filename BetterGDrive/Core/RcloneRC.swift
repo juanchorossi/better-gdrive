@@ -123,11 +123,14 @@ enum RcloneRC {
         p.arguments = [
             "rcd",
             "--rc-user", "bettergdrive",
-            "--rc-pass", rcSecret,
             "--rc-addr", "127.0.0.1:\(port)",
             "--log-file", logURL.path,
             "--log-level", "INFO",
         ]
+        // The secret goes through the environment, not argv: any same-user process can read
+        // another process's arguments with `ps`, and that is enough to drive the daemon.
+        p.environment = ProcessInfo.processInfo.environment.merging(
+            ["RCLONE_RC_PASS": rcSecret], uniquingKeysWith: { _, new in new })
         p.standardOutput = FileHandle.nullDevice
         p.standardError  = FileHandle.nullDevice
         try? p.run()
@@ -280,7 +283,7 @@ enum RcloneRC {
     static func startSync(job: JobDefinition) async throws -> Int {
         if job.direction != .download && job.gitPullFirst == true { await gitPull(path: job.localPath) }
 
-        let localExpanded = job.localPath.replacingOccurrences(of: "~", with: NSHomeDirectory())
+        let localExpanded = (job.localPath as NSString).expandingTildeInPath
         let src = job.direction == .download ? job.drivePath : localExpanded
         let dst = job.direction == .download ? localExpanded  : job.drivePath
 
@@ -305,7 +308,7 @@ enum RcloneRC {
 
         var filterParams: [String: Any] = [:]
         if let ff = job.filterFile {
-            let p = ff.replacingOccurrences(of: "~", with: NSHomeDirectory())
+            let p = (ff as NSString).expandingTildeInPath
             filterParams["FilterFrom"] = [p]
         }
         if !job.excludePatterns.isEmpty {
@@ -318,6 +321,8 @@ enum RcloneRC {
         let resp: RCSyncResponse = try await post(endpoint, body: body)
         return resp.jobid
     }
+
+    static let dryRunMaxWait: TimeInterval = 15 * 60
 
     // Dry-runs a sync-mode upload job and returns the paths that would be deleted from Drive.
     // Returns [] on any error so callers can fail open.
@@ -333,7 +338,7 @@ enum RcloneRC {
             startOffset = 0
         }
 
-        let localExpanded = job.localPath.replacingOccurrences(of: "~", with: NSHomeDirectory())
+        let localExpanded = (job.localPath as NSString).expandingTildeInPath
         var body: [String: Any] = [
             "srcFs": localExpanded,
             "dstFs": job.drivePath,
@@ -343,19 +348,24 @@ enum RcloneRC {
 
         var filterParams: [String: Any] = [:]
         if let ff = job.filterFile {
-            filterParams["FilterFrom"] = [ff.replacingOccurrences(of: "~", with: NSHomeDirectory())]
+            filterParams["FilterFrom"] = [(ff as NSString).expandingTildeInPath]
         }
         if !job.excludePatterns.isEmpty { filterParams["ExcludeRule"] = job.excludePatterns }
         if !filterParams.isEmpty { body["_filter"] = filterParams }
 
         guard let resp = try? await post("sync/sync", body: body) as RCSyncResponse else { return [] }
 
-        for _ in 0..<60 {
-            try? await Task.sleep(nanoseconds: 500_000_000)
+        // rclone only decides deletions after listing both sides, which takes minutes on a
+        // large folder. Giving up early (this used to stop at 30 s) returned [] for exactly
+        // the folders where the confirmation matters most. Wait for the job, with a cap.
+        let deadline = Date().addingTimeInterval(dryRunMaxWait)
+        var finished = false
+        while Date() < deadline {
+            try? await Task.sleep(nanoseconds: 1_000_000_000)
             guard let status = try? await jobStatus(resp.jobid) else { break }
-            if status.finished { break }
+            if status.finished { finished = true; break }
         }
-        await stopJob(resp.jobid)
+        if !finished { await stopJob(resp.jobid) }
 
         guard let fh = try? FileHandle(forReadingFrom: logURL) else { return [] }
         fh.seek(toFileOffset: startOffset)
@@ -609,7 +619,7 @@ enum RcloneRC {
     }
 
     private static func gitPull(path: String) async {
-        let resolved = path.replacingOccurrences(of: "~", with: NSHomeDirectory())
+        let resolved = (path as NSString).expandingTildeInPath
         // Verify the path stays within the user's home directory before passing it to git.
         let home = NSHomeDirectory()
         guard resolved.hasPrefix(home + "/") || resolved == home else { return }
@@ -619,8 +629,13 @@ enum RcloneRC {
                        "-c", "core.hooksPath=/dev/null"]
         p.standardOutput = FileHandle.nullDevice
         p.standardError  = FileHandle.nullDevice
-        try? p.run()
-        await withCheckedContinuation { c in p.terminationHandler = { _ in c.resume() } }
+        // If git can't launch, don't wait on a handler that will never fire: the job would
+        // sit in "running" forever. waitUntilExit on a background queue has no race with a
+        // process that exits before a terminationHandler is installed.
+        do { try p.run() } catch { return }
+        await withCheckedContinuation { (c: CheckedContinuation<Void, Never>) in
+            DispatchQueue.global(qos: .utility).async { p.waitUntilExit(); c.resume() }
+        }
     }
 }
 

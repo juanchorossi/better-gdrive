@@ -329,6 +329,9 @@ struct JobRow: View {
         } else if job.status == .paused {
             Text("Paused")
                 .font(.caption2).foregroundStyle(.blue)
+        } else if store.isCheckingDeletions(job.id) {
+            Text(L.Status.checkingDeletions)
+                .font(.caption2).foregroundStyle(.blue)
         } else if job.hasLocalChanges {
             Text("Changes detected…")
                 .font(.caption2).foregroundStyle(.secondary)

@@ -319,6 +319,9 @@ struct MainJobRow: View {
                 .font(.caption).foregroundStyle(.orange)
                 .lineLimit(1).truncationMode(.middle)
                 .help(job.errorTooltip ?? job.errorSubtitle)
+        } else if store.isCheckingDeletions(job.id) {
+            Text(L.Status.checkingDeletions)
+                .font(.caption2).foregroundStyle(.blue)
         } else if job.hasLocalChanges {
             Text("Changes detected…")
                 .font(.caption).foregroundStyle(.secondary)
