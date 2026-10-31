@@ -916,8 +916,16 @@ final class StatusStore: ObservableObject {
     }
 
     /// Short, human label for a raw rclone per-file error.
+    /// rclone's three spellings of "the source changed under me": hash mismatch after upload,
+    /// explicit corruption check, or a size change detected mid-copy.
+    static func isChangedWhileUploading(_ low: String) -> Bool {
+        low.contains("hashes differ") || low.contains("corrupted on transfer") ||
+        low.contains("source file is being updated")
+    }
+
     static func shortReason(_ raw: String) -> String {
         let low = raw.lowercased()
+        if isChangedWhileUploading(low)                              { return "Changed while uploading" }
         if low.contains("permission denied")                         { return "No permission" }
         if low.contains("autherror") || low.contains("error 401")    { return "Google auth hiccup" }
         if low.contains("no such file or directory")                 { return "File vanished" }
@@ -987,10 +995,22 @@ final class StatusStore: ObservableObject {
         if low.contains("directory not found") || low.contains("no such file or directory") {
             return "Folder not found"
         }
+        // A file was rewritten while rclone was reading it (build artifacts, logs, DBs).
+        // Drive got different bytes than the final file. Self-heals on the next run.
+        if Self.isChangedWhileUploading(low) {
+            return errorCount > 1
+                ? "\(errorCount) files changed while uploading — retrying"
+                : "1 file changed while uploading — retrying"
+        }
         // RC daemon auth/internal errors (e.g. "RC error 401" when secret rotated after retry)
         if low.hasPrefix("rc error") {
             return "Sync service error"
         }
+        // Any other per-file error: rclone's last error is just one file's story, and the raw
+        // text (hashes, URLs, fs names) is unreadable in a row. The count is what matters here;
+        // the per-file reasons live in Activity. Sync never deletes once a file failed.
+        if errorCount == 1 { return "1 file failed — nothing deleted" }
+        if errorCount > 1  { return "\(errorCount) files failed — nothing deleted" }
         // Strip rclone path prefixes and return the last meaningful segment
         let clean = raw.components(separatedBy: ": ").last ?? raw
         let trimmed = clean.trimmingCharacters(in: .whitespaces)

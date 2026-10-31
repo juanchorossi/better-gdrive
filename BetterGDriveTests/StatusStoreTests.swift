@@ -260,6 +260,26 @@ final class StatusStoreTests: XCTestCase {
         XCTAssertEqual(store.friendlyError(raw, errorCount: 7), "7 files failed — nothing deleted")
     }
 
+    func testChangedWhileUploadingIsNamedNotDumpedRaw() {
+        let store = StatusStore()
+        let md5 = "corrupted on transfer: md5 hashes differ src(Local file system at /Users/me/Documents/Projects) \"b1a6\" vs dst(Google drive root 'Projects') \"2ad9\""
+        XCTAssertEqual(store.friendlyError(md5, errorCount: 1), "1 file changed while uploading — retrying")
+        XCTAssertEqual(store.friendlyError(md5, errorCount: 3), "3 files changed while uploading — retrying")
+        let sizeChanged = "Failed to copy: googleapi: Copy failed: can't copy - source file is being updated (size changed from 718171 to 718483)"
+        XCTAssertEqual(store.friendlyError(sizeChanged, errorCount: 1), "1 file changed while uploading — retrying")
+        XCTAssertEqual(StatusStore.shortReason(md5), "Changed while uploading")
+        XCTAssertEqual(StatusStore.shortReason(sizeChanged), "Changed while uploading")
+    }
+
+    func testUnknownPerFileErrorShowsCountNotRawText() {
+        let store = StatusStore()
+        let raw = "Failed to copy: googleapi: Error 500: Backend Error, backendError"
+        XCTAssertEqual(store.friendlyError(raw, errorCount: 1), "1 file failed — nothing deleted")
+        XCTAssertEqual(store.friendlyError(raw, errorCount: 4), "4 files failed — nothing deleted")
+        // No per-file count → still the last segment of the raw text, as before
+        XCTAssertEqual(store.friendlyError(raw), "Backend Error, backendError")
+    }
+
     func testPermissionDeniedNamesTheFolder() {
         let store = StatusStore()
         let raw = "not deleting files as there were IO errors"
