@@ -58,9 +58,12 @@ xcodebuild -scheme BetterGDrive -destination 'platform=macOS' test 2>&1 \
 Tiene que terminar en `TEST SUCCEEDED` con 0 failures. Si falla, parar: no se
 publica con tests rojos.
 
-Aviso conocido: el test host instancia `StatusStore`, que reinicia el daemon
-de rclone del puerto 5572. El app instalado pierde su daemon durante la
-corrida. No importa: el paso 3 lo reemplaza y relanza igual.
+Los tests no tocan el daemon ni lanzan syncs: `StatusStore.init` corta antes
+de arrancar servicios cuando detecta XCTest (`isRunningTests`). Si durante
+la corrida cambia el PID de `rclone rcd` o aparecen corridas nuevas en el
+log, ese guard se rompió: parar, porque los tests estarían sincronizando las
+carpetas reales del usuario en paralelo con el app y dejando duplicados en
+Drive.
 
 ## 3. Build + instalar en /Applications
 

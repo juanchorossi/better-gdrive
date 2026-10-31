@@ -218,6 +218,11 @@ final class StatusStore: ObservableObject {
         await MainActor.run { googleAccount = info; isLoadingAccount = false }
     }
 
+    /// True inside an XCTest host process (unit tests or UI test runner).
+    static let isRunningTests: Bool =
+        ProcessInfo.processInfo.environment["XCTestConfigurationFilePath"] != nil ||
+        NSClassFromString("XCTestCase") != nil
+
     init() {
         needsSetup = !StatusStore.isGDriveConfigured()
         activity = []
@@ -228,6 +233,11 @@ final class StatusStore: ObservableObject {
            let items = try? decoder.decode([ActivityItem].self, from: data) {
             activity = items
         }
+
+        // Under XCTest the store is a value holder for pure helpers. Starting services here
+        // would kill the installed app's rclone daemon and launch real syncs of the user's
+        // folders from the test host, racing the app and leaving duplicate files in Drive.
+        guard !Self.isRunningTests else { return }
 
         Task {
             let ready = await RcloneRC.ensureDaemon()

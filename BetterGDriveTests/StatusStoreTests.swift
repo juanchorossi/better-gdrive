@@ -252,6 +252,14 @@ final class StatusStoreTests: XCTestCase {
         XCTAssertTrue(StatusStore.isGoogleAuthHiccup(raw))
     }
 
+    func testStoreDoesNotStartServicesUnderXCTest() {
+        // If this flips to false, every StatusStore() in this file restarts the real rclone
+        // daemon and starts syncing the user's folders from the test host.
+        XCTAssertTrue(StatusStore.isRunningTests)
+        let store = StatusStore()
+        XCTAssertFalse(store.daemonReady)
+    }
+
     func testIOErrorMessageIncludesCount() {
         let store = StatusStore()
         let raw = "not deleting files as there were IO errors"
