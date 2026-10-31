@@ -319,6 +319,45 @@ final class StatusStoreTests: XCTestCase {
         XCTAssertFalse(StatusStore.isRepeatedFailure(fail, in: [ok, fail]))
         // Successes are never deduped here
         XCTAssertFalse(StatusStore.isRepeatedFailure(ok, in: [ok]))
+        // A resolved failure no longer suppresses the same failure happening again
+        var resolved = fail
+        resolved.resolvedAt = Date()
+        XCTAssertFalse(StatusStore.isRepeatedFailure(fail, in: [resolved]))
+    }
+
+    func testCleanRunResolvesOnlyThatJobsUnresolvedFailures() {
+        let t = Date(timeIntervalSince1970: 1_800_000_000)
+        let a = ActivityItem(timestamp: t, jobName: "Projects", filePath: "rentik/src/lib/content", operation: .failed, detail: "Google auth hiccup")
+        let b = ActivityItem(timestamp: t, jobName: "Ualá", filePath: "Bkp/logs", operation: .failed, detail: "No permission")
+        let c = ActivityItem(timestamp: t, jobName: "Projects", filePath: "x.txt", operation: .uploaded)
+        let d = ActivityItem(timestamp: t, jobName: "Projects", filePath: "old", operation: .failed, detail: "Network timeout", resolvedAt: t)
+        let now = Date()
+        let (out, changed) = StatusStore.resolveFailures(for: "Projects", in: [a, b, c, d], at: now)
+        XCTAssertTrue(changed)
+        XCTAssertEqual(out[0].resolvedAt, now)        // this job's failure → resolved
+        XCTAssertNil(out[1].resolvedAt)               // other job untouched
+        XCTAssertNil(out[2].resolvedAt)               // successes untouched
+        XCTAssertEqual(out[3].resolvedAt, t)          // already resolved keeps its original time
+        XCTAssertEqual(out.map(\.id), [a, b, c, d].map(\.id))  // order preserved
+        // Nothing to do → unchanged
+        let (_, again) = StatusStore.resolveFailures(for: "Projects", in: out, at: now)
+        XCTAssertFalse(again)
+    }
+
+    func testResolvedFailureLabelColorAndTooltip() {
+        var item = ActivityItem(timestamp: Date(), jobName: "Projects", filePath: "rentik/src/lib/content", operation: .failed, detail: "Google auth hiccup")
+        XCTAssertFalse(item.isResolved)
+        XCTAssertEqual(item.statusLabel, "Failed")
+        XCTAssertEqual(item.failureTooltip, "rentik/src/lib/content\nGoogle auth hiccup")
+        item.resolvedAt = Date()
+        XCTAssertTrue(item.isResolved)
+        XCTAssertEqual(item.statusLabel, "Failed · resolved")
+        XCTAssertTrue(item.failureTooltip?.contains("Synced OK ") == true)
+        XCTAssertEqual(item.failureTooltip?.components(separatedBy: "\n").count, 3)
+        // Non-failures never read as resolved even with a date set
+        let ok = ActivityItem(timestamp: Date(), jobName: "P", filePath: "a.txt", operation: .uploaded, resolvedAt: Date())
+        XCTAssertFalse(ok.isResolved)
+        XCTAssertEqual(ok.statusLabel, "Uploaded")
     }
 
     func testFailedRowShowsFullPath() {
@@ -348,6 +387,8 @@ final class StatusStoreTests: XCTestCase {
         let items = try dec.decode([ActivityItem].self, from: Data(json.utf8))
         XCTAssertEqual(items.count, 1)
         XCTAssertNil(items[0].detail)
+        XCTAssertNil(items[0].resolvedAt)
+        XCTAssertFalse(items[0].isResolved)
     }
 
     // MARK: - Retry backoff

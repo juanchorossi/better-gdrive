@@ -89,7 +89,7 @@ struct DetailView: View {
                         Text(L.Activity.name)
                             .frame(maxWidth: .infinity, alignment: .leading)
                         Text(L.Activity.status)
-                            .frame(width: 90, alignment: .trailing)
+                            .frame(width: 120, alignment: .trailing)
                         Text(L.Activity.time)
                             .frame(width: 44, alignment: .trailing)
                     }
@@ -127,12 +127,12 @@ struct DetailView: View {
 
             HStack(spacing: 3) {
                 Image(systemName: item.operation.icon)
-                Text(item.operation.description)
+                Text(item.statusLabel)
             }
             .font(.caption)
-            .foregroundStyle(item.operation.color)
+            .foregroundStyle(item.statusColor)
             .help(item.failureTooltip ?? item.operation.description)
-            .frame(width: 90, alignment: .trailing)
+            .frame(width: 120, alignment: .trailing)
 
             Text(item.relativeTime)
                 .font(.caption2)

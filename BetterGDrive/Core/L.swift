@@ -55,6 +55,8 @@ enum L {
         static let moved      = "Moved"
         static let downloaded = "Downloaded"
         static let failed     = "Failed"
+        static let resolved   = "resolved"
+        static let syncedOKAt = "Synced OK"
     }
 
     enum Settings {

@@ -791,10 +791,17 @@ final class StatusStore: ObservableObject {
         }
         logOffsetAtStart.removeValue(forKey: configId)
 
+        var activityChanged = false
         if !pendingItems.isEmpty {
             activity = Array((pendingItems.prefix(Self.maxFailedItemsPerRun * 2) + activity).prefix(500))
-            saveActivity()
+            activityChanged = true
         }
+        // After the new rows are in, so attempt-1 failures of this same clean run get resolved too.
+        if !hasErr {
+            let (resolved, changed) = Self.resolveFailures(for: jobName, in: activity, at: Date())
+            if changed { activity = resolved; activityChanged = true }
+        }
+        if activityChanged { saveActivity() }
     }
 
     // MARK: - Outcome bookkeeping
@@ -883,7 +890,21 @@ final class StatusStore: ObservableObject {
         guard item.operation == .failed else { return false }
         guard let newest = activity.first(where: { $0.jobName == item.jobName && $0.filePath == item.filePath })
         else { return false }
-        return newest.operation == .failed && newest.detail == item.detail
+        return newest.operation == .failed && newest.detail == item.detail && newest.resolvedAt == nil
+    }
+
+    /// A clean run reconciles the whole tree, so every unresolved failure of that job is now fixed.
+    /// Returns the updated list and whether anything changed.
+    static func resolveFailures(for jobName: String, in activity: [ActivityItem], at date: Date) -> ([ActivityItem], Bool) {
+        var changed = false
+        let updated = activity.map { item -> ActivityItem in
+            guard item.operation == .failed, item.jobName == jobName, item.resolvedAt == nil else { return item }
+            var copy = item
+            copy.resolvedAt = date
+            changed = true
+            return copy
+        }
+        return (updated, changed)
     }
 
     private static func activityItem(for item: RCTransferred, jobName: String, op: ActivityOp, drivePath: String?) -> ActivityItem {

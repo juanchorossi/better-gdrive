@@ -404,9 +404,9 @@ struct ActivityRow: View {
                         Text("·")
                             .font(.caption2)
                             .foregroundStyle(.tertiary)
-                        Text(reason)
+                        Text(item.isResolved ? "\(reason) · \(L.Ops.resolved)" : reason)
                             .font(.caption2)
-                            .foregroundStyle(.red)
+                            .foregroundStyle(item.statusColor)
                             .lineLimit(1)
                             .truncationMode(.tail)
                     } else if let folder = item.parentFolder {

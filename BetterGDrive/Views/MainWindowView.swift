@@ -421,7 +421,7 @@ struct MainActivityView: View {
                 Text("Folder")
                     .frame(width: 80, alignment: .leading)
                 Text(L.Activity.status)
-                    .frame(width: 90, alignment: .leading)
+                    .frame(width: 120, alignment: .leading)
                 Text(L.Activity.time)
                     .frame(width: 120, alignment: .trailing)
             }
@@ -502,14 +502,14 @@ struct ActivityTableRow: View {
                 } else {
                     HStack(spacing: 3) {
                         Image(systemName: item.operation.icon)
-                        Text(item.operation.description)
+                        Text(item.statusLabel)
                     }
                     .font(.caption)
-                    .foregroundStyle(item.operation.color)
+                    .foregroundStyle(item.statusColor)
                     .help(item.failureTooltip ?? item.operation.description)
                 }
             }
-            .frame(width: 90, alignment: .leading)
+            .frame(width: 120, alignment: .leading)
 
             Text(item.exactTime)
                 .font(.caption2).foregroundStyle(.secondary).monospacedDigit()

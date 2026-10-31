@@ -92,10 +92,11 @@ struct ActivityItem: Identifiable, Codable {
     var operation: ActivityOp
 
     var drivePath: String?
-    var detail: String?   // short reason for .failed items
+    var detail: String?      // short reason for .failed items
+    var resolvedAt: Date?    // set when a later clean run of the job reconciled this failure
 
     init(timestamp: Date, jobName: String, filePath: String, operation: ActivityOp,
-         drivePath: String? = nil, detail: String? = nil) {
+         drivePath: String? = nil, detail: String? = nil, resolvedAt: Date? = nil) {
         self.id = UUID()
         self.timestamp = timestamp
         self.jobName = jobName
@@ -103,17 +104,29 @@ struct ActivityItem: Identifiable, Codable {
         self.operation = operation
         self.drivePath = drivePath
         self.detail = detail
+        self.resolvedAt = resolvedAt
     }
+
+    var isResolved: Bool { operation == .failed && resolvedAt != nil }
+
+    /// Status column text: the operation, or "Failed · resolved" once a later run fixed it.
+    var statusLabel: String {
+        isResolved ? "\(L.Ops.failed) · \(L.Ops.resolved)" : operation.description
+    }
+
+    /// Status column color: resolved failures are dimmed so live ones stand out.
+    var statusColor: Color { isResolved ? operation.color.opacity(0.45) : operation.color }
 
     var fileName: String { URL(fileURLWithPath: filePath).lastPathComponent }
 
     /// Row title: failures show the full path (the folder is the point), others the file name.
     var displayName: String { operation == .failed ? filePath : fileName }
 
-    /// Tooltip for failed rows: path plus reason.
+    /// Tooltip for failed rows: path, reason, and when a later run synced it OK.
     var failureTooltip: String? {
         guard operation == .failed else { return nil }
-        return [filePath, detail].compactMap { $0 }.joined(separator: "\n")
+        let resolved = resolvedAt.map { "\(L.Ops.syncedOKAt) \(Self.timestampFormatter.string(from: $0))" }
+        return [filePath, detail, resolved].compactMap { $0 }.joined(separator: "\n")
     }
 
     var parentFolder: String? {
