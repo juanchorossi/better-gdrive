@@ -51,12 +51,15 @@ BUILD=$(sed -n 's/^ *CURRENT_PROJECT_VERSION: *"\([^"]*\)".*/\1/p' project.yml |
 ## 2. Tests
 
 ```bash
+RCD_BEFORE=$(pgrep -x rclone | head -1)
 xcodebuild -scheme BetterGDrive -destination 'platform=macOS' test 2>&1 \
   | grep -E "error:|Test Case.*failed|Executed [0-9]+ tests|TEST (FAILED|SUCCEEDED)" | tail -6
+RCD_AFTER=$(pgrep -x rclone | head -1)
+[ "$RCD_BEFORE" = "$RCD_AFTER" ] && echo daemon-untouched || echo DAEMON-RESTARTED
 ```
 
-Tiene que terminar en `TEST SUCCEEDED` con 0 failures. Si falla, parar: no se
-publica con tests rojos.
+Tiene que terminar en `TEST SUCCEEDED` con 0 failures y `daemon-untouched`.
+Si falla, parar: no se publica con tests rojos.
 
 Los tests no tocan el daemon ni lanzan syncs: `StatusStore.init` corta antes
 de arrancar servicios cuando detecta XCTest (`isRunningTests`). Si durante
