@@ -1003,6 +1003,15 @@ final class StatusStore: ObservableObject {
             return "Connection interrupted"
         }
         if low.contains("directory not found") || low.contains("no such file or directory") {
+            // Only the job's own root missing is "Folder not found". A subfolder or file that
+            // vanished mid-run (build staging dirs, temp files) is a per-item error that the
+            // next run clears; saying the folder is gone sends the user to re-pick it.
+            let rootExists = localPath.map { FileManager.default.fileExists(atPath: ($0 as NSString).expandingTildeInPath) }
+            if errorCount > 0, rootExists != false {
+                return errorCount > 1
+                    ? "\(errorCount) files vanished during sync — retrying"
+                    : "1 file vanished during sync — retrying"
+            }
             return "Folder not found"
         }
         // A file was rewritten while rclone was reading it (build artifacts, logs, DBs).

@@ -6,7 +6,10 @@ set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 APP_NAME="Better GDrive"
-STAGING="$SCRIPT_DIR/.dmg-staging"
+# Stage outside the repo: the repo lives in a folder the app itself syncs to Drive, and a
+# staging dir appearing and vanishing mid-run made rclone report "directory not found".
+STAGING="$(mktemp -d -t bettergdrive-dmg)"
+trap 'rm -rf "$STAGING"' EXIT
 
 echo "▸ Better GDrive — DMG builder"
 echo ""
@@ -37,8 +40,6 @@ OUTPUT="$SCRIPT_DIR/$DMG_NAME"
 echo "  Version $VERSION"
 
 # Staging
-rm -rf "$STAGING"
-mkdir -p "$STAGING"
 cp -R "$APP_PATH" "$STAGING/"
 ln -s /Applications "$STAGING/Applications"
 
@@ -57,8 +58,6 @@ hdiutil create \
   -imagekey zlib-level=9 \
   -size "${IMAGE_MB}m" \
   "$OUTPUT" > /dev/null
-
-rm -rf "$STAGING"
 
 SIZE=$(du -sh "$OUTPUT" | cut -f1)
 echo "  ✓ $DMG_NAME ($SIZE)"

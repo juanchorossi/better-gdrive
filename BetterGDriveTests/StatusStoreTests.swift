@@ -279,6 +279,20 @@ final class StatusStoreTests: XCTestCase {
         XCTAssertEqual(StatusStore.shortReason(sizeChanged), "Changed while uploading")
     }
 
+    func testVanishedSubfolderIsNotReportedAsMissingRoot() {
+        let store = StatusStore()
+        let raw = "BetterGDrive/.dmg-staging/Better GDrive.app/Contents/MacOS: error reading source directory: directory not found"
+        let root = NSTemporaryDirectory()  // exists
+        XCTAssertEqual(store.friendlyError(raw, errorCount: 3, localPath: root), "3 files vanished during sync — retrying")
+        XCTAssertEqual(store.friendlyError(raw, errorCount: 1, localPath: root), "1 file vanished during sync — retrying")
+        // No per-item count → rclone couldn't start at all → the root really is missing
+        XCTAssertEqual(store.friendlyError(raw, localPath: root), "Folder not found")
+        // Root gone from disk → say so even with a count
+        XCTAssertEqual(store.friendlyError(raw, errorCount: 2, localPath: "/nonexistent/\(UUID().uuidString)"), "Folder not found")
+        // Unknown root path → trust the count
+        XCTAssertEqual(store.friendlyError(raw, errorCount: 2), "2 files vanished during sync — retrying")
+    }
+
     func testUnknownPerFileErrorShowsCountNotRawText() {
         let store = StatusStore()
         let raw = "Failed to copy: googleapi: Error 500: Backend Error, backendError"
