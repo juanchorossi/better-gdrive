@@ -56,7 +56,7 @@ struct BetterGDriveApp: App {
                 Button("About \(L.General.appName)") {
                     NSApp.orderFrontStandardAboutPanel(options: [
                         .applicationName: L.General.appName,
-                        .version: "1.0.0",
+                        .version: Bundle.main.shortVersion,
                         .credits: NSAttributedString(string: "Sync your folders to Google Drive with rclone.")
                     ])
                 }
