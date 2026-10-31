@@ -56,7 +56,8 @@ final class StatusStore: ObservableObject {
 
     // File watchers: one per job, started after daemon is ready
     private var pathMonitor: NWPathMonitor?
-    private var dryRunCheckingIds: Set<String> = []
+    // Jobs whose ▶ is waiting on the deletion dry-run (can take minutes on a big folder).
+    @Published private(set) var dryRunCheckingIds: Set<String> = []
     private var fileWatchers: [String: LocalFileWatcher] = [:]
     // Debounce tasks: cancelled and recreated on each FSEvent
     private var debounceTask: [String: Task<Void, Never>] = [:]
@@ -181,17 +182,11 @@ final class StatusStore: ObservableObject {
 
     // MARK: - Init
 
-    private func loadActivity() -> [ActivityItem] {
-        guard let data = try? Data(contentsOf: Self.activityURL),
-              let items = try? JSONDecoder().decode([ActivityItem].self, from: data) else { return [] }
-        return items
-    }
-
     private func saveActivity() {
         let encoder = JSONEncoder()
         encoder.dateEncodingStrategy = .iso8601
         if let data = try? encoder.encode(Array(activity.prefix(500))) {
-            try? data.write(to: Self.activityURL)
+            try? data.write(to: Self.activityURL, options: .atomic)
         }
     }
 
@@ -380,6 +375,8 @@ final class StatusStore: ObservableObject {
             }
         }
     }
+
+    func isCheckingDeletions(_ jobId: String) -> Bool { dryRunCheckingIds.contains(jobId) }
 
     func confirmDeleteAndSync() {
         guard let pending = pendingDeletion else { return }
@@ -578,13 +575,18 @@ final class StatusStore: ObservableObject {
     }
 
     private func startJob(_ def: JobDefinition) async {
-        await MainActor.run {
-            if let i = jobs.firstIndex(where: { $0.id == def.id }) {
-                jobs[i].isRunning = true
-                jobs[i].status = .running
-                jobs[i].syncStarted = Date()
-            }
+        // Single chokepoint for every caller (▶, Run all, watcher, timer, retry, deletion
+        // sheet). Two rclone runs of the same folder at once upload new files twice and
+        // leave duplicate names in Drive, so the check-and-set is atomic on the main actor.
+        let claimed: Bool = await MainActor.run {
+            guard let i = jobs.firstIndex(where: { $0.id == def.id }) else { return false }
+            guard !jobs[i].isRunning, runningJobs[def.id] == nil else { return false }
+            jobs[i].isRunning = true
+            jobs[i].status = .running
+            jobs[i].syncStarted = Date()
+            return true
         }
+        guard claimed else { return }
 
         let offset = RcloneRC.logOffset()
         await MainActor.run { logOffsetAtStart[def.id] = offset }
@@ -665,7 +667,11 @@ final class StatusStore: ObservableObject {
                     await MainActor.run { self.finishJob(configId: configId, rcId: rcId, status: status, transferred: xfers, jobName: jobName) }
                 }
             } catch {
-                // Job not found on daemon — daemon likely restarted; abandon the job.
+                // Only "job not found" means the daemon restarted and forgot the job. A timeout
+                // or transport error while rclone is busy listing Drive must not mark jobs as
+                // stopped: rclone keeps running them, and the next watcher tick would start a
+                // second run of the same folder.
+                guard Self.isJobNotFound(error) else { continue }
                 await MainActor.run { self.abandonRunningJobs() }
                 break
             }
@@ -701,6 +707,11 @@ final class StatusStore: ObservableObject {
                 jobs[i].filesInfo = "Scanning \(fmt(c)) files"
             }
         }
+    }
+
+    /// rclone RC answers `job/status` for an unknown id with "job not found".
+    static func isJobNotFound(_ error: Error) -> Bool {
+        error.localizedDescription.lowercased().contains("job not found")
     }
 
     @MainActor

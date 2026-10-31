@@ -252,6 +252,22 @@ final class StatusStoreTests: XCTestCase {
         XCTAssertTrue(StatusStore.isGoogleAuthHiccup(raw))
     }
 
+    func testOnlyJobNotFoundAbandonsRunningJobs() {
+        let notFound = NSError(domain: "RcloneRC", code: 500, userInfo: [NSLocalizedDescriptionKey: "job not found"])
+        XCTAssertTrue(StatusStore.isJobNotFound(notFound))
+        let timeout = URLError(.timedOut)
+        XCTAssertFalse(StatusStore.isJobNotFound(timeout))
+        let other = NSError(domain: "RcloneRC", code: 500, userInfo: [NSLocalizedDescriptionKey: "internal error"])
+        XCTAssertFalse(StatusStore.isJobNotFound(other))
+    }
+
+    func testCorruptConfigBackupKeepsOriginalNameAndStampsDate() {
+        let url = URL(fileURLWithPath: "/tmp/x/config.json")
+        let backup = ConfigStore.corruptBackupURL(for: url, at: Date(timeIntervalSince1970: 0))
+        XCTAssertTrue(backup.lastPathComponent.hasPrefix("config.json.corrupt-"))
+        XCTAssertEqual(backup.deletingLastPathComponent(), url.deletingLastPathComponent())
+    }
+
     func testStoreDoesNotStartServicesUnderXCTest() {
         // If this flips to false, every StatusStore() in this file restarts the real rclone
         // daemon and starts syncing the user's folders from the test host.
